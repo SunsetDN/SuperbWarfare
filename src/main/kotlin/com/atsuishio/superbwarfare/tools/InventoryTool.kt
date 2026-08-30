@@ -1,12 +1,15 @@
 package com.atsuishio.superbwarfare.tools
 
 import com.atsuishio.superbwarfare.Mod
+import com.atsuishio.superbwarfare.compat.CompatHolder
 import com.atsuishio.superbwarfare.data.gun.Ammo
 import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity
 import com.atsuishio.superbwarfare.init.ModItems
 import com.atsuishio.superbwarfare.item.ammo.AmmoBoxItem
 import com.atsuishio.superbwarfare.item.ammo.AmmoSupplierItem
+import com.tacz.guns.api.item.IAmmo
 import net.minecraft.core.NonNullList
+import net.minecraft.resources.ResourceLocation
 import net.minecraft.tags.TagKey
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.player.Player
@@ -157,8 +160,73 @@ object InventoryTool {
     }
 
     /**
+     * 清点物品栏内指定 TACZ 弹药口径（[caliberId]）的数量。1 个 TACZ 弹药物品 = 1 发。
+     */
+    @JvmStatic
+    fun countCaliberAmmoItem(handler: IItemHandler?, caliberId: ResourceLocation?): Int {
+        if (handler == null || caliberId == null || !CompatHolder.hasTacz()) return 0
+
+        var count = 0
+        for (i in 0..<handler.slots) {
+            val stack = handler.getStackInSlot(i)
+            val item = stack.item
+            if (item is IAmmo && item.getAmmoId(stack) == caliberId) {
+                count += stack.count
+            }
+        }
+        return count
+    }
+
+    @JvmStatic
+    fun countCaliberAmmoItem(entity: Entity?, caliberId: ResourceLocation?): Int {
+        if (entity == null || caliberId == null) return 0
+
+        return entity.getCapability(Capabilities.ItemHandler.ENTITY)
+            ?.let { countCaliberAmmoItem(it, caliberId) }
+            ?: 0
+    }
+
+    /**
+     * 消耗物品栏内指定 TACZ 弹药口径（[caliberId]）的弹药，返回实际消耗数量。
+     */
+    @JvmStatic
+    fun consumeCaliberAmmoItem(handler: IItemHandler?, caliberId: ResourceLocation?, count: Int): Int {
+        var count = count
+        if (handler == null || caliberId == null || !CompatHolder.hasTacz()) return 0
+
+        val initialCount = count
+        for (i in 0..<handler.slots) {
+            if (count <= 0) break
+
+            val stack = handler.getStackInSlot(i)
+            val item = stack.item
+            if (item !is IAmmo || item.getAmmoId(stack) != caliberId) continue
+
+            val countToShrink = Math.min(stack.count, count)
+            handler.extractItem(i, countToShrink, false)
+            count -= countToShrink
+        }
+
+        return initialCount - count
+    }
+
+    /**
+     * 向物品栏返还指定 TACZ 弹药口径（[caliberId]）的弹药，返回成功返还的数量。
+     */
+    @JvmStatic
+    fun withdrawCaliberAmmoItem(handler: IItemHandler?, caliberId: ResourceLocation?, count: Int): Int {
+        if (handler == null || caliberId == null || count <= 0 || !CompatHolder.hasTacz()) return 0
+
+        val stack = com.tacz.guns.api.item.builder.AmmoItemBuilder.create()
+            .setId(caliberId)
+            .setCount(count)
+            .build()
+        return insertItem(handler, stack, count)
+    }
+
+    /**
      * 判断实体物品栏内是否有指定物品
-     * 
+     *
      * @param entity 实体
      * @param item   物品类型
      */

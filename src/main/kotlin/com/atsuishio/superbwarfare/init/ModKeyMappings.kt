@@ -125,6 +125,18 @@ object ModKeyMappings {
     @JvmField
     val TOGGLE_TACTICAL_MAP = registerKey("toggle_tactical_map", GLFW.GLFW_KEY_M)
 
+    @JvmField
+    val AIRCRAFT_RUDDER_LEFT = registerKey("aircraft_rudder_left", GLFW.GLFW_KEY_COMMA)
+
+    @JvmField
+    val AIRCRAFT_RUDDER_RIGHT = registerKey("aircraft_rudder_right", GLFW.GLFW_KEY_PERIOD)
+
+    @JvmField
+    val AIRCRAFT_TOGGLE_FLAPS = registerKey("aircraft_toggle_flaps", GLFW.GLFW_KEY_F)
+
+    @JvmField
+    val AIRCRAFT_AIRBRAKE = registerKey("aircraft_airbrake", GLFW.GLFW_KEY_B)
+
     private fun registerKey(
         name: String,
         code: Int,

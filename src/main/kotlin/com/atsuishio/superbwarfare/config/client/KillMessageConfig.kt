@@ -10,7 +10,7 @@ object KillMessageConfig {
 
         comment("Set true if you want to show kill message")
         comment("是否显示击杀提示")
-        define("show_kill_message", true)
+        define("show_kill_message", false)
     }
 
     @JvmField

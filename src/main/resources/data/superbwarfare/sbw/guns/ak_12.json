@@ -24,7 +24,7 @@
     "Type": "Rifle"
   },
   "Icon": "superbwarfare:textures/gun_icon/ak_12_icon.png",
-  "AmmoType": "@RifleAmmo",
+  "AmmoType": "@tacz:545x39",
   "AvailablePerks": [
     "@Ammo",
     "superbwarfare:heal_clip",

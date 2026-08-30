@@ -19,7 +19,7 @@
   "DamageReduce": {
     "Type": "Sniper"
   },
-  "AmmoType": "@SniperAmmo",
+  "AmmoType": "@tacz:308",
   "Icon": "superbwarfare:textures/gun_icon/sentinel_icon.png",
   "AvailablePerks": [
     "@Ammo",

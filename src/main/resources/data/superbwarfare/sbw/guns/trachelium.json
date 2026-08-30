@@ -13,9 +13,9 @@
   "RPM": 240,
   "GunType": "Handgun",
   "AmmoType": [
-    "@RifleAmmo",
+    "@tacz:556x45",
     {
-      "Ammo": "@ShotgunAmmo",
+      "Ammo": "@tacz:12g",
       "AmmoSlot": "Default",
       "Override": {
         "Damage": 6.5,

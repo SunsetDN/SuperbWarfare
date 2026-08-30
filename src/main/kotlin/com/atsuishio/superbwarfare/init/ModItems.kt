@@ -161,15 +161,7 @@ object ModItems {
     val AMMO: ItemRegister = DeferredRegister.create(BuiltInRegistries.ITEM, Mod.MODID)
 
     // @formatter:off
-    @JvmField val HANDGUN_AMMO = registerAmmo("handgun_ammo") { AmmoSupplierItem(Ammo.HANDGUN, 1, Properties()) }
-    @JvmField val RIFLE_AMMO = registerAmmo("rifle_ammo") { AmmoSupplierItem(Ammo.RIFLE, 1, Properties()) }
-    @JvmField val SNIPER_AMMO = registerAmmo("sniper_ammo") { AmmoSupplierItem(Ammo.SNIPER, 1, Properties()) }
-    @JvmField val SHOTGUN_AMMO = registerAmmo("shotgun_ammo") { AmmoSupplierItem(Ammo.SHOTGUN, 1, Properties()) }
     @JvmField val HEAVY_AMMO = registerAmmo("heavy_ammo") { AmmoSupplierItem(Ammo.HEAVY, 1, Properties()) }
-    @JvmField val HANDGUN_AMMO_BOX = registerAmmo<HandgunAmmoBoxItem>("handgun_ammo_box")
-    @JvmField val RIFLE_AMMO_BOX = registerAmmo<RifleAmmoBoxItem>("rifle_ammo_box")
-    @JvmField val SNIPER_AMMO_BOX = registerAmmo<SniperAmmoBoxItem>("sniper_ammo_box")
-    @JvmField val SHOTGUN_AMMO_BOX = registerAmmo<ShotgunAmmoBoxItem>("shotgun_ammo_box")
     @JvmField val CREATIVE_AMMO_BOX = registerAmmo<CreativeAmmoBoxItem>("creative_ammo_box")
     @JvmField val AMMO_BOX = registerAmmo<AmmoBoxItem>("ammo_box")
     @JvmField val TASER_ELECTRODE = registerAmmo("taser_electrode")

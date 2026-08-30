@@ -28,7 +28,7 @@
   "DamageReduce": {
     "Type": "Shotgun"
   },
-  "AmmoType": "@ShotgunAmmo",
+  "AmmoType": "@tacz:12g",
   "Icon": "superbwarfare:textures/gun_icon/m_870_icon.png",
   "AvailablePerks": [
     "@Ammo",

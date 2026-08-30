@@ -4,7 +4,6 @@ import com.atsuishio.superbwarfare.client.renderer.item.SkinSprayRenderer
 import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity
 import com.atsuishio.superbwarfare.item.IVehicleInteract
 import com.atsuishio.superbwarfare.network.message.receive.OpenVehicleSkinScreenMessage
-import com.atsuishio.superbwarfare.registerToEventBus
 import com.atsuishio.superbwarfare.tools.mc
 import com.atsuishio.superbwarfare.tools.sendPacket
 import net.minecraft.world.InteractionHand
@@ -15,11 +14,16 @@ import net.minecraft.world.item.ItemStack
 import net.neoforged.bus.api.SubscribeEvent
 import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions
 import net.neoforged.neoforge.client.extensions.common.RegisterClientExtensionsEvent
+import thedarkcolour.kotlinforforge.neoforge.forge.MOD_BUS
 
 object SkinSprayItem : Item(Properties().stacksTo(1)), IVehicleInteract {
 
     init {
-        registerToEventBus(this)
+        // RegisterClientExtensionsEvent is a mod-bus-only event (IModBusEvent) -- unlike
+        // registerToEventBus's NeoForge.EVENT_BUS (the common bus), which this object's only
+        // listener isn't valid on ("IModBusEvent events are not allowed on the common NeoForge
+        // bus!").
+        MOD_BUS.register(this)
     }
 
     override fun onInteractVehicle(

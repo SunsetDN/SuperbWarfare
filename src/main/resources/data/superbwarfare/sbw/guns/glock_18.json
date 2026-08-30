@@ -21,7 +21,7 @@
   "DamageReduce": {
     "Type": "Handgun"
   },
-  "AmmoType": "@HandgunAmmo",
+  "AmmoType": "@tacz:9mm",
   "Icon": "superbwarfare:textures/gun_icon/glock_17_icon.png",
   "AvailablePerks": [
     "@Ammo",

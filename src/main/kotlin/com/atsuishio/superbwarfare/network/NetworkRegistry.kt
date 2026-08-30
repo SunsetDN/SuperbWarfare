@@ -69,6 +69,8 @@ private fun registerPayloads() {
     playToClient<FinishAssemblingVehicleMessage>()
     playToClient<LivingGunKillMessage>()
     playToClient<PlayerVariablesSyncMessage>()
+    playToClient<CaliberAmmoSyncMessage>()
+    playToClient<GunFireFmodSoundMessage>()
     playToClient<RadarMenuCloseMessage>()
     playToClient<RadarMenuOpenMessage>()
     playToClient<ResetCameraTypeMessage>()

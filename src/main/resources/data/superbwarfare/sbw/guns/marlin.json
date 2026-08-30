@@ -21,7 +21,7 @@
   "DamageReduce": {
     "Type": "Rifle"
   },
-  "AmmoType": "@RifleAmmo",
+  "AmmoType": "@tacz:45_70",
   "Icon": "superbwarfare:textures/gun_icon/marlin_icon.png",
   "AvailablePerks": [
     "@Ammo",

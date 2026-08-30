@@ -56,7 +56,9 @@ val notInGame: Boolean
         if (mc.player == null) return true
         if (mc.overlay != null) return true
         if (mc.screen != null) return true
-        if (!mc.mouseHandler.isMouseGrabbed) return true
+        // Mouse Aim驾驶飞机/直升机时，鼠标被我们自己主动释放(不再是vanilla抓取状态)，
+        // 这不代表玩家离开了游戏——否则steering/throttle等操控包会被这里误判掐断
+        if (!mc.mouseHandler.isMouseGrabbed && !com.atsuishio.superbwarfare.event.ClientMouseHandler.mouseAimActive) return true
         return !mc.isWindowActive
     }
 

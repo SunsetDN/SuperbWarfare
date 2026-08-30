@@ -23,7 +23,7 @@
   "DamageReduce": {
     "Type": "Rifle"
   },
-  "AmmoType": "@RifleAmmo",
+  "AmmoType": "@tacz:762x39",
   "Icon": "superbwarfare:textures/gun_icon/rpk_icon.png",
   "AvailablePerks": [
     "@Ammo",

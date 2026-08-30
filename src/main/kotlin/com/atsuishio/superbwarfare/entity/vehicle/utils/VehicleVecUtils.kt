@@ -34,6 +34,46 @@ object VehicleVecUtils {
         entity.getFluidTypeHeight(entity.level().getFluidState(entity.blockPosition()).fluidType)
 
     /**
+     * 把一个"飞行员自己视角里的抬头/低头"俯仰增量，正确地按载具*当前姿态*叠加到
+     * (xRot, yRot, roll)这三个欧拉角字段上——而不是像原来那样直接对xRot做平坦的世界系增量。
+     *
+     * 背景：载具的实际渲染姿态由[com.atsuishio.superbwarfare.client.renderer.entity.GeoVehicleRenderer.rotateVehicleAxis]
+     * 按 Yaw(-yRot+180) -> Pitch(-xRot) -> Roll(-roll) 的顺序合成(rotateAround Y轴、X轴、Z轴，
+     * 一个套一个，等价于四元数 `rotateY(yawRad).rotateX(pitchRad).rotateZ(rollRad)` 的本地/内禀合成)。
+     * 直接对xRot做`xRot += delta`只在roll≈0时才等价于"绕机体自身俯仰轴转"；一旦横滚到接近90°
+     * 甚至完全倒扣(180°)，世界X轴早就不再是机头的"左右轴"了，这时候平坦欧拉增量会让"拉杆"
+     * 表现成侧偏航甚至朝错误方向低头——这就是经典的欧拉角万向节问题。
+     *
+     * 这里用同样的Y->X->Z合成顺序重建当前姿态四元数，在其*末尾*(四元数右乘=本地系)追加一个
+     * 绕本地X轴(俯仰轴)的旋转，再用[Quaternionf.getEulerAnglesYXZ]按同一约定分解回三个字段——
+     * 这样无论载具怎么倒扣/侧扣，"拉杆"永远相对于飞行员自己的机头抬头，不会被姿态本身污染。
+     *
+     * @param entity 载具
+     * @param deltaPitchDeg 期望施加的俯仰增量(角度)，符号与现有代码里`xRot += delta`的约定一致
+     *                      (正值=现有代码里"低头"方向，与飞机渲染里`xRot`的符号约定保持不变)
+     */
+    @JvmStatic
+    fun applyLocalPitch(entity: VehicleEntity, deltaPitchDeg: Float) {
+        if (deltaPitchDeg == 0f) return
+
+        val yawRad = Math.toRadians((-entity.yRot + 180).toDouble()).toFloat()
+        val pitchRad = Math.toRadians((-entity.xRot).toDouble()).toFloat()
+        val rollRad = Math.toRadians((-entity.roll).toDouble()).toFloat()
+
+        val q = Quaternionf().rotateYXZ(yawRad, pitchRad, rollRad)
+        // 渲染那边俯仰角是取反的(-xRot)，本地追加的量也要同样取反，
+        // 这样"追加deltaPitchDeg"才等价于渲染公式里"xRot再增加deltaPitchDeg"
+        q.rotateX(Math.toRadians((-deltaPitchDeg).toDouble()).toFloat())
+
+        val euler = Vector3f()
+        q.getEulerAnglesYXZ(euler)
+
+        entity.xRot = (-Math.toDegrees(euler.x.toDouble())).toFloat()
+        entity.yRot = (180.0 - Math.toDegrees(euler.y.toDouble())).toFloat()
+        entity.setZRot((-Math.toDegrees(euler.z.toDouble())).toFloat())
+    }
+
+    /**
      * 获取四元数实体的局部Y轴（上方向）在世界空间中的单位向量
      */
     @JvmStatic

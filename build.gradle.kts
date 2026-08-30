@@ -21,6 +21,17 @@ tasks.named<Wrapper>("wrapper") {
 version = "${project.property("mod_version")}-mc${project.property("minecraft_version")}"
 group = "com.atsuishio.superbwarfare"
 
+// This project's own runtimeClasspath hits the exact same three-way commons-io conflict the root
+// project's build.gradle.kts already forces past (see that file's comment on its own
+// `configurations.all` block): FancyModLoader pins `strictly 2.11.0`, Minecraft's own dependency
+// set pins `strictly 2.15.1`, and this project's `engine:fmod:1.0` dependency (below) requests
+// 2.18.0 -- three mutually-exclusive constraints Gradle can't satisfy at once. The root project's
+// force doesn't reach here since this is a separate Gradle project (an included build), so it
+// needs its own copy of the same force.
+configurations.all {
+    resolutionStrategy.force("commons-io:commons-io:2.15.1")
+}
+
 repositories {
     mavenLocal()
     mavenCentral()
@@ -89,6 +100,13 @@ repositories {
         content {
             includeGroup("com.github.MCModderAnchor")
         }
+    }
+    // Required to resolve TACZ's (mods/TACZ-1.21.1) transitive forgified-fabric-api dependency
+    // (pulled in via Sodium/Iris) when Gradle resolves this project's own configurations --
+    // same reason the root build.gradle.kts declares this repo.
+    maven {
+        url = uri("https://maven.su5ed.dev/releases")
+        content { includeGroup("org.sinytra.forgified-fabric-api") }
     }
 }
 
@@ -168,6 +186,7 @@ neoForge {
 
         // applies to all the run configs above
         configureEach {
+            disableIdeRun()
             jvmArguments = listOf(
                 "-XX:+IgnoreUnrecognizedVMOptions",
                 "-XX:+AllowEnhancedClassRedefinition"
@@ -252,7 +271,19 @@ dependencies {
     jijImplement("top.theillusivec4.curios:curios-neoforge:9.2.0+1.21.1")
 
     // 从ywzj毛来的Rhino
-    add("additionalRuntimeClasspath", "org.ywzj:rhino:1.8.1-SNAPSHOT")
+    // NOTE: this used to ALSO be added via add("additionalRuntimeClasspath", ...) alongside
+    // jijImplement below. That put org.ywzj:rhino (package org.mozillaa.javascript, jar at
+    // mods/SuperbWarfare/libs/rhino-1.8.1-SNAPSHOT.jar via the flatDir repo above -- a plain
+    // library jar, no neoforge.mods.toml of its own) on the dev runClient classpath TWICE
+    // through two different mechanisms: once as a flat classpath entry (additionalRuntimeClasspath)
+    // and once through jarJar's own dependency resolution (jijImplement's underlying
+    // implementation(...) call already makes it visible to compile/runtime without needing
+    // additionalRuntimeClasspath too). Two physical copies of the same non-mod library jar ended
+    // up loaded via different classloaders, so JDK ServiceLoader's org.mozillaa.javascript.Context
+    // static init crashed with "RegExpLoaderImpl not a subtype" (interface loaded by one copy,
+    // impl resolved from the other) -- confirmed via a runClient crash log where this was the root
+    // cause of a NoClassDefFoundError cascading into a world-load failure. jijImplement alone is
+    // enough for both compile and the dev run classpath; only removing the duplicate is needed.
     jijImplement("org.ywzj:rhino:1.8.1-SNAPSHOT")
 
     // SBM
@@ -263,6 +294,19 @@ dependencies {
         exclude("it.unimi.dsi", "fastutil")
         exclude("org.joml", "joml")
     }
+
+    // TACZ 弹药 API（TaczAmmoStrategy）—仅编译期可见，运行时由 DNCity 根工程一并加载 TACZ，
+    // SBW 自身不打包/强制依赖 TACZ（独立运行时通过 ModList.isLoaded("tacz") 守卫）。
+    // 版本号需与根工程 gradle.properties 的 mods_tacz_version 保持一致。
+    compileOnly("com.tacz:tacz-neoforge-1.21.1:1.1.8-hotfix-r6")
+
+    // FMOD Studio JNI bindings (engine/fmod) — SbwFmodWeaponSoundManager uses this to play gun
+    // sounds from DNCity's bundled Weapons.bank. Unlike the TACZ dependency above, this one is
+    // jarJar'd (not compileOnly) since SBW owns and drives its own independent FMODSystem
+    // instance rather than depending on TACZ being present — same two-line shape TACZ's own
+    // build.gradle.kts uses for the same coordinate.
+    implementation("engine:fmod:1.0")
+    jarJar("engine:fmod:1.0")
 
     // ponder
     jijImplement("net.createmod.ponder:ponder-neoforge:${project.property("ponder_version")}+mc${project.property("minecraft_version")}")
@@ -307,23 +351,31 @@ dependencies {
     implementation("curse.maven:playeranimator-658587:6024462")
 
     implementation("curse.maven:spark-361579:6225208")
+    // (was also pulling curse.maven:irisshaders-455508 and curse.maven:sodium-394468 here for
+    // client-only runs -- removed as redundant with (and conflicting against) the Sodium/Iris
+    // substitution wired for the "maven.modrinth:sodium" coordinate right above, see
+    // settings.gradle.kts's comment on mods/sodium's/mods/Iris's includeBuild: having more than one
+    // jar claim the same mod ID crashed runClient with a NoClassDefFoundError for whichever real
+    // Sodium class didn't happen to be in the jar NeoForge picked.)
     implementation("maven.modrinth:sodium:mc1.21.1-0.6.13-neoforge")
-
-    // 这俩是仅客户端mod
-    if (!project.gradle.startParameter.taskNames.any { it.contains("runServer") }) {
-        runtimeOnly("curse.maven:irisshaders-455508:6661598")
-        runtimeOnly("curse.maven:sodium-394468:6382651")
-    }
 
     implementation("curse.maven:create-328085:7963363")
     // Sable
     compileOnly("dev.ryanhcode.sable-companion:sable-companion-common-1.21.1:1.6.0")
+    // create-aeronautics (Create: Aeronautics) used to be pulled in here too, but nothing in this
+    // module's own source (compat/ponder/, compat/sable/) actually references its API -- confirmed
+    // by hand (zero hits for `dev.eriksonn.aeronautics`/`eriksonn` anywhere under src/). It was also
+    // the actual cause of a real crash: create-aeronautics jarJars its own `simulated`/`offroad`
+    // addons, all three requiring `sable [2.0.0,3.0.0)`, and Sable 2.x itself requires Sodium
+    // 0.8.12-alpha.2+ -- far newer than the Sodium fork this repo vendors (mods/sodium, currently
+    // 0.6.13). Since nothing here uses aeronautics, dropping it removes the whole forced chain
+    // instead of trying to upgrade the vendored Sodium fork just to satisfy an unused dependency.
+    // Sable itself stays on the older 1.2.2 line (compatible with 0.6.13 Sodium) since
+    // compat/sable/SableCompatHandler.kt does use it for real.
     if (!project.gradle.startParameter.taskNames.any { it.contains("runData") }) {
         implementation("curse.maven:sable-1312371:8007005")
-        implementation("maven.modrinth:create-aeronautics:1.1.3+mc1.21.1")
     } else {
         compileOnly("curse.maven:sable-1312371:8007005")
-        compileOnly("maven.modrinth:create-aeronautics:1.1.3+mc1.21.1")
     }
 //    implementation(fg.deobf("curse.maven:mmmmmmmmmmmm-225738:6237015"))
 //    implementation(fg.deobf("curse.maven:selene-499980:6249659"))

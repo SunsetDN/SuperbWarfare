@@ -171,19 +171,16 @@ object AmmoBarOverlay : CommonOverlay("ammo_bar") {
 
                 val consumerType = ammoConsumer.type
                 val renderStackCount =
-                    consumerType == AmmoConsumeType.ITEM || consumerType == AmmoConsumeType.PLAYER_AMMO
+                    consumerType == AmmoConsumeType.ITEM || consumerType == AmmoConsumeType.PLAYER_AMMO || consumerType == AmmoConsumeType.CALIBER_AMMO
                 if (renderStackCount) {
                     val ammoStack: ItemStack
                     if (consumerType == AmmoConsumeType.PLAYER_AMMO) {
                         val ammoType = ammoConsumer.playerAmmoType!!
                         ammoStack = when (ammoType) {
-                            Ammo.HANDGUN -> ItemStack(ModItems.HANDGUN_AMMO.get())
-                            Ammo.RIFLE -> ItemStack(ModItems.RIFLE_AMMO.get())
-                            Ammo.SHOTGUN -> ItemStack(ModItems.SHOTGUN_AMMO.get())
-                            Ammo.SNIPER -> ItemStack(ModItems.SNIPER_AMMO.get())
                             Ammo.HEAVY -> ItemStack(ModItems.HEAVY_AMMO.get())
                         }
                     } else {
+                        // CALIBER_AMMO 及 ITEM 类型均使用 consumer.stack() 渲染（TACZ 弹药由 TaczAmmoStrategy 在 init 时填充）
                         ammoStack = ammoConsumer.stack()
                     }
 

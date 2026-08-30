@@ -68,22 +68,6 @@ object ModVillagers {
                 ),
                 BasicItemListing(
                     ItemStack(Items.EMERALD, 1),
-                    ItemStack(ModItems.HANDGUN_AMMO.get(), 20), 16, 1, 0.05f
-                ),
-                BasicItemListing(
-                    ItemStack(Items.EMERALD, 1),
-                    ItemStack(ModItems.RIFLE_AMMO.get(), 15), 16, 1, 0.05f
-                ),
-                BasicItemListing(
-                    ItemStack(Items.EMERALD, 1),
-                    ItemStack(ModItems.SNIPER_AMMO.get(), 8), 16, 1, 0.05f
-                ),
-                BasicItemListing(
-                    ItemStack(Items.EMERALD, 1),
-                    ItemStack(ModItems.SHOTGUN_AMMO.get(), 8), 16, 1, 0.05f
-                ),
-                BasicItemListing(
-                    ItemStack(Items.EMERALD, 1),
                     ItemStack(ModItems.HEAVY_AMMO.get(), 6), 32, 1, 0.05f
                 ),
                 BasicItemListing(
@@ -105,22 +89,6 @@ object ModVillagers {
                 BasicItemListing(
                     ItemStack(Items.EMERALD, 1),
                     ItemStack(ModItems.BLU_43_MINE.get(), 8), 32, 1, 0.05f
-                ),
-                BasicItemListing(
-                    ItemStack(ModItems.HANDGUN_AMMO.get(), 40),
-                    ItemStack(Items.EMERALD, 1), 32, 2, 0.05f
-                ),
-                BasicItemListing(
-                    ItemStack(ModItems.RIFLE_AMMO.get(), 30),
-                    ItemStack(Items.EMERALD, 1), 32, 2, 0.05f
-                ),
-                BasicItemListing(
-                    ItemStack(ModItems.SNIPER_AMMO.get(), 16),
-                    ItemStack(Items.EMERALD, 1), 32, 2, 0.05f
-                ),
-                BasicItemListing(
-                    ItemStack(ModItems.SHOTGUN_AMMO.get(), 16),
-                    ItemStack(Items.EMERALD, 1), 32, 2, 0.05f
                 ),
                 BasicItemListing(
                     ItemStack(ModItems.HEAVY_AMMO.get(), 12),
@@ -192,38 +160,6 @@ object ModVillagers {
 
             // 等级 3 交易
             val list3 = listOf(
-                BasicItemListing(
-                    ItemStack(Items.EMERALD, 3),
-                    ItemStack(ModItems.HANDGUN_AMMO_BOX.get(), 2), 8, 5, 0.05f
-                ),
-                BasicItemListing(
-                    ItemStack(Items.EMERALD, 2),
-                    ItemStack(ModItems.RIFLE_AMMO_BOX.get(), 1), 8, 5, 0.05f
-                ),
-                BasicItemListing(
-                    ItemStack(Items.EMERALD, 3),
-                    ItemStack(ModItems.SNIPER_AMMO_BOX.get(), 1), 8, 5, 0.05f
-                ),
-                BasicItemListing(
-                    ItemStack(Items.EMERALD, 3),
-                    ItemStack(ModItems.SHOTGUN_AMMO_BOX.get(), 1), 8, 5, 0.05f
-                ),
-                BasicItemListing(
-                    ItemStack(ModItems.HANDGUN_AMMO_BOX.get(), 4),
-                    ItemStack(Items.EMERALD, 3), 16, 5, 0.05f
-                ),
-                BasicItemListing(
-                    ItemStack(ModItems.RIFLE_AMMO_BOX.get(), 1),
-                    ItemStack(Items.EMERALD, 1), 16, 5, 0.05f
-                ),
-                BasicItemListing(
-                    ItemStack(ModItems.SNIPER_AMMO_BOX.get(), 2),
-                    ItemStack(Items.EMERALD, 3), 16, 5, 0.05f
-                ),
-                BasicItemListing(
-                    ItemStack(ModItems.SHOTGUN_AMMO_BOX.get(), 2),
-                    ItemStack(Items.EMERALD, 3), 16, 5, 0.05f
-                ),
                 BasicItemListing(
                     ItemStack(Items.EMERALD, 16),
                     ItemStack(ModItems.CEMENTED_CARBIDE_MATERIALS.barrel.get()), 12, 10, 0.05f

@@ -16,7 +16,7 @@
     "Type": "Rifle"
   },
   "GunType": "Rifle",
-  "AmmoType": "@RifleAmmo",
+  "AmmoType": "@tacz:762x39",
   "Icon": "superbwarfare:textures/gun_icon/sks_icon.png",
   "AvailablePerks": [
     "@Ammo",

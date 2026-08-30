@@ -29,6 +29,13 @@ object AmmoConfig {
         }
     }
 
+    /** 玩家身上每种 TACZ 弹药口径能存储的最大弹药数量（所有口径共用一个上限） */
+    val CALIBER_AMMO_LIMIT = buildServerConfig {
+        comment("The max amount of TACZ caliber ammo (per caliber) a player can carry in the SBW ammo pool")
+        comment("玩家身上每种 TACZ 弹药口径能存储的最大弹药数量")
+        defineInRange("caliber_ammo_limit", Int.MAX_VALUE, 0, Int.MAX_VALUE)
+    }
+
     init {
         SERVER_CONFIG_BUILDER.pop()
     }

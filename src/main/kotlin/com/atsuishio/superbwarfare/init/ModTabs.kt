@@ -85,7 +85,7 @@ object ModTabs {
         Supplier {
             builder()
                 .title(Component.translatable("item_group.superbwarfare.ammo"))
-                .icon { ItemStack(ModItems.SHOTGUN_AMMO_BOX.get()) }
+                .icon { ItemStack(ModItems.AMMO_BOX.get()) }
                 .withTabsBefore(PERK_TAB.getKey())
                 .displayItems { param, output ->
                     ModItems.AMMO.getEntries().forEach { registryObject ->

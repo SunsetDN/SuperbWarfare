@@ -93,6 +93,7 @@ object ClientRenderHandler {
         event.registerBelowAll(AmmoCountOverlay.ID, AmmoCountOverlay)
         event.registerBelowAll(ItemRendererFixOverlay.ID, ItemRendererFixOverlay)
         event.registerBelowAll(CrossHairOverlay.ID, CrossHairOverlay)
+        event.registerAbove(CrossHairOverlay.ID, MouseAimReticleOverlay.ID, MouseAimReticleOverlay)
         event.registerBelowAll(HeatBarOverlay.ID, HeatBarOverlay)
         event.registerBelowAll(DroneHudOverlay.ID, DroneHudOverlay)
         event.registerBelowAll(RedTriangleOverlay.ID, RedTriangleOverlay)

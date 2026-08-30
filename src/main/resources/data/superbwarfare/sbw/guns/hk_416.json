@@ -23,7 +23,7 @@
     "Semi",
     "Auto"
   ],
-  "AmmoType": "@RifleAmmo",
+  "AmmoType": "@tacz:556x45",
   "Icon": "superbwarfare:textures/gun_icon/hk_416_icon.png",
   "AvailablePerks": [
     "@Ammo",

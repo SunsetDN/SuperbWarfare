@@ -4,6 +4,9 @@ import com.atsuishio.superbwarfare.client.particle.CustomCloudOption
 import com.atsuishio.superbwarfare.data.vehicle.subdata.EngineInfo
 import com.atsuishio.superbwarfare.entity.vehicle.Ac130hEntity
 import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity
+import com.atsuishio.superbwarfare.entity.vehicle.utils.VehicleAircraftFlightUtils.canRetractGearSafely
+import com.atsuishio.superbwarfare.entity.vehicle.utils.VehicleAircraftFlightUtils.updateAircraftThrottle
+import com.atsuishio.superbwarfare.entity.vehicle.utils.VehicleAircraftFlightUtils.updateFlapsToggle
 import com.atsuishio.superbwarfare.entity.vehicle.utils.VehicleEngineUtils.aircraftLoiter
 import com.atsuishio.superbwarfare.init.ModDamageTypes
 import com.atsuishio.superbwarfare.init.ModSounds
@@ -25,6 +28,21 @@ import org.joml.Math
 import kotlin.math.*
 
 object VehicleEngineUtils {
+    /**
+     * 速度相关转向响应系数：低速时转向权威更高（原地掉头/急转），
+     * 高速时更平滑/更受阻尼（防止高速大幅度打方向导致的瞬间甩尾）。
+     * 履带载具低速转向权威更强（原地转向是履带载具的物理特性）。
+     */
+    private fun trackSteerSpeedFactor(vehicle: VehicleEntity): Float {
+        val speed = vehicle.deltaMovement.horizontalDistance().toFloat()
+        return Mth.clamp(1.35f / (1f + 0.75f * speed), 0.45f, 1.35f)
+    }
+
+    private fun wheelSteerSpeedFactor(vehicle: VehicleEntity): Float {
+        val speed = vehicle.deltaMovement.horizontalDistance().toFloat()
+        return Mth.clamp(1.15f / (1f + 0.9f * speed), 0.4f, 1.15f)
+    }
+
     @JvmStatic
     fun VehicleEntity.trackEngine(engineInfo: EngineInfo.Track) {
         val buoyancy = engineInfo.buoyancy
@@ -49,7 +67,9 @@ object VehicleEngineUtils {
 
         if (onGround()) {
 
-            var f0 = (if (drift()) 0.95f
+            // 履带载具漂移：相比轮式载具摩擦更大（履带啃地），速度衰减更猛，
+            // 但转向权威保持得更久——更接近"原地掉头/急刹掉头"而非轮式的连续侧滑
+            var f0 = (if (drift()) 0.90f
             else 0.54f + 0.25f * Mth.abs(deltaMovement.normalize().dot(getViewVector(1f)).toFloat()))
 
             if (isInFluidType) {
@@ -126,34 +146,41 @@ object VehicleEngineUtils {
 
         val maxPower = if (sprintInputDown) 1.25f else (if (power > 1) power - 0.002f else 1f)
 
+        // 油门响应带一点迟滞（涡轮/传动带响应延迟），而非瞬间到位
         if (forwardInputDown && !backInputDown) {
+            holdPowerTick = Math.min(holdPowerTick + 1, 20)
+            val throttleRamp = 0.4f + 0.6f * (holdPowerTick / 20f)
             power = Math.min(
-                power + (if (power < 0) powerAdd * 2f else powerAdd) * (maxPower - (Mth.abs(power) / 1.02f)),
+                power + (if (power < 0) powerAdd * 2f else powerAdd * throttleRamp) * (maxPower - (Mth.abs(power) / 1.02f)),
                 maxPower
             )
+        } else if (!backInputDown) {
+            holdPowerTick = 0
         }
 
+        // 刹车：随当前动力越大咬得越狠（更有"冲劲"），而非线性/瞬间生效
         if (backInputDown) {
+            val brakeBite = if (power > 0) powerReduce * (4f + 5f * Mth.abs(power)) else powerReduce
             power = Math.max(
-                power - (if (power > 0) powerReduce * 4f else powerReduce) * (maxPower - (Mth.abs(power) / 1.02f)),
+                power - brakeBite * (maxPower - (Mth.abs(power) / 1.02f)),
                 -1f
             )
             if (rightInputDown) {
                 holdTick++
-                deltaRot += steeringSpeed * 0.12f * Math.min(holdTick, 10)
+                deltaRot += steeringSpeed * trackSteerSpeedFactor(this) * 0.12f * Math.min(holdTick, 10)
             } else if (leftInputDown) {
                 holdTick++
-                deltaRot -= steeringSpeed * 0.12f * Math.min(holdTick, 10)
+                deltaRot -= steeringSpeed * trackSteerSpeedFactor(this) * 0.12f * Math.min(holdTick, 10)
             } else {
                 holdTick = 0
             }
         } else {
             if (rightInputDown) {
                 holdTick++
-                deltaRot -= steeringSpeed * 0.12f * Math.min(holdTick, 10)
+                deltaRot -= steeringSpeed * trackSteerSpeedFactor(this) * 0.12f * Math.min(holdTick, 10)
             } else if (leftInputDown) {
                 holdTick++
-                deltaRot += steeringSpeed * 0.12f * Math.min(holdTick, 10)
+                deltaRot += steeringSpeed * trackSteerSpeedFactor(this) * 0.12f * Math.min(holdTick, 10)
             } else {
                 holdTick = 0
             }
@@ -181,7 +208,9 @@ object VehicleEngineUtils {
             consumeEnergy(energyCost)
         }
 
-        deltaRot *= Math.max(0.76f - 0.1f * deltaMovement.horizontalDistance(), 0.3).toFloat()
+        // 漂移时转向权威保持更久（履带原地掉头的物理特性），非漂移时正常快速回正
+        deltaRot *= (if (drift()) Math.max(0.90f - 0.05f * deltaMovement.horizontalDistance(), 0.55)
+        else Math.max(0.76f - 0.1f * deltaMovement.horizontalDistance(), 0.3)).toFloat()
 
         val s0 = deltaMovement.dot(getViewVector(1f))
 
@@ -245,7 +274,8 @@ object VehicleEngineUtils {
         }
 
         if (onGround()) {
-            var f0 = (if (drift()) 0.96f
+            // 轮式载具漂移：摩擦损失比履带小，更接近连续侧滑而非急停掉头
+            var f0 = (if (drift()) 0.965f
             else 0.54f + 0.25f * Mth.abs(deltaMovement.normalize().dot(getViewVector(1f)).toFloat()))
 
             if (isInFluidType) {
@@ -340,16 +370,23 @@ object VehicleEngineUtils {
 
         val maxPower = if (sprintInputDown) 1.3f else (if (power > 1) power - 0.002f else 1f)
 
+        // 油门响应带一点迟滞，而非瞬间到位
         if (forwardInputDown && !backInputDown) {
+            holdPowerTick = Math.min(holdPowerTick + 1, 20)
+            val throttleRamp = 0.4f + 0.6f * (holdPowerTick / 20f)
             power = Math.min(
-                power + (if (power < 0) powerAdd * 2f else powerAdd) * (maxPower - (Mth.abs(power) / 1.02f)),
+                power + (if (power < 0) powerAdd * 2f else powerAdd * throttleRamp) * (maxPower - (Mth.abs(power) / 1.02f)),
                 maxPower
             )
+        } else if (!backInputDown) {
+            holdPowerTick = 0
         }
 
+        // 刹车：随当前动力越大咬得越狠（更有"冲劲"），而非线性/瞬间生效
         if (backInputDown) {
+            val brakeBite = if (power > 0) powerReduce * (4f + 5f * Mth.abs(power)) else powerReduce
             power = Math.max(
-                power - (if (power > 0) powerReduce * 4f else powerReduce) * (maxPower - (Mth.abs(power) / 1.02f)), -1f
+                power - brakeBite * (maxPower - (Mth.abs(power) / 1.02f)), -1f
             )
         }
 
@@ -396,6 +433,7 @@ object VehicleEngineUtils {
         if (drift()) {
             steeringSpeed *= 1.5f
         }
+        steeringSpeed *= wheelSteerSpeedFactor(this)
 
         if (rightInputDown) {
             holdTick++
@@ -407,7 +445,9 @@ object VehicleEngineUtils {
             holdTick = 0
         }
 
-        deltaRot *= Math.max(0.78f - 0.25f * deltaMovement.horizontalDistance(), 0.1).toFloat()
+        // 轮式漂移的转向权威衰减更快——持续侧滑而非履带式的原地咬死掉头
+        deltaRot *= (if (drift()) Math.max(0.72f - 0.22f * deltaMovement.horizontalDistance(), 0.2)
+        else Math.max(0.78f - 0.25f * deltaMovement.horizontalDistance(), 0.1)).toFloat()
 
         val s0 = deltaMovement.dot(getViewVector(1f))
 
@@ -681,14 +721,39 @@ object VehicleEngineUtils {
                 } else {
                     holdTick = 0
                 }
-                xRot += (if (onGround()) 0f else 1.5f) * pitchSpeed * mouseMoveSpeedY * synchedPropellerRot
-                setZRot(roll - rollSpeed * (deltaRot + (if (onGround()) 0f else 0.25f) * mouseMoveSpeedX * synchedPropellerRot))
 
+                // Mouse Aim：鼠标是"光标相对屏幕中心的偏移量"而不再是逐tick位移增量，
+                // 所以周期变距(俯仰/滚转)也要从原来的"+="速率累加改成"lerp向目标倾转角"——
+                // 否则光标停在偏移位置不动时，原来的+=写法会让机体一直转下去不会停
+                val manualRollOverride = Mth.abs(deltaRot) > 0.01f
+                if (!onGround()) {
+                    val cyclicMaxPitch = 22f
+                    val cyclicMaxRoll = 28f
+
+                    val targetPitch = Mth.clamp(mouseMoveSpeedY * cyclicMaxPitch, -cyclicMaxPitch, cyclicMaxPitch)
+                    val pitchLerpRate = Mth.clamp(0.15f * pitchSpeed, 0.03f, 0.5f) * synchedPropellerRot
+                    // 周期变距的俯仰增量同样必须按机体本地俯仰轴施加（原理同aircraftEngine），
+                    // 否则大坡度周期倾转时也会有同样的欧拉角万向节问题
+                    val pitchDelta = Mth.wrapDegrees(targetPitch - xRot) * pitchLerpRate
+                    VehicleVecUtils.applyLocalPitch(this, pitchDelta)
+
+                    if (manualRollOverride) {
+                        // A/D直接接管滚转，鼠标周期变距让位（与固定翼A/D覆盖滚转是同一套逻辑）
+                        setZRot(roll - rollSpeed * deltaRot)
+                    } else {
+                        val targetRoll = Mth.clamp(mouseMoveSpeedX * cyclicMaxRoll, -cyclicMaxRoll, cyclicMaxRoll)
+                        val rollLerpRate = Mth.clamp(0.15f * rollSpeed, 0.03f, 0.5f) * synchedPropellerRot
+                        setZRot(lerpAngle(roll, targetRoll, rollLerpRate))
+                    }
+                }
+
+                // 方向舵(Q/E)：独立于周期变距的偏航微调，叠加在鼠标横向偏移带来的协调转弯偏航分量上
+                val rudderInput = (if (rudderRightInputDown) 1f else 0f) - (if (rudderLeftInputDown) 1f else 0f)
                 yRot += yawSpeed * Mth.clamp(
                     (if (onGround()) 0.1f else 2f) * mouseMoveSpeedX * synchedPropellerRot + (if (subEngineDamaged) 25 else 0) * synchedPropellerRot,
                     -10f,
                     10f
-                )
+                ) + rudderInput * yawSpeed * 0.5f
 
                 if (onGround()) {
                     hoverMode = false
@@ -809,7 +874,7 @@ object VehicleEngineUtils {
         val rollSpeed = engineInfo.rollSpeed
         val lift = engineInfo.liftSpeed
         val speedRate = engineInfo.speedRate
-        val resistance = engineInfo.resistance * if (downInputDown) 1.5 else 1.0
+        val resistance = engineInfo.resistance * if (airbrakeInputDown) 1.5 else 1.0
         val gearRotateAngle = engineInfo.gearRotateAngle
         val clampPitch = engineInfo.clampPitch
         val clampRoll = engineInfo.clampRoll
@@ -820,8 +885,12 @@ object VehicleEngineUtils {
         val dotViewVector = deltaMovement.dot(getViewVector(1f))
         val normalizeDotViewVector = deltaMovement.normalize().dot(getViewVector(1f))
 
+        // 襟翼放下和起落架放下都会显著增加阻力（起落架空气阻力，襟翼诱导阻力）
+        val flapsDrag = if (flapsDown) 0.02 else 0.0
+        val gearDrag = if (!onGround()) 0.015 * synchedGearRot else 0.0
+
         var f = Mth.clamp(
-            0.96 - 0.0017 * resistance * speedSqr - 0.00001 * (1 - Mth.abs(normalizeDotViewVector.toFloat())),
+            0.96 - 0.0017 * resistance * speedSqr - 0.00001 * (1 - Mth.abs(normalizeDotViewVector.toFloat())) - flapsDrag - gearDrag,
             0.01,
             0.99
         ).toFloat()
@@ -860,8 +929,9 @@ object VehicleEngineUtils {
         }
 
         if (energy <= energyCost || (maxEnergy > 0 && energy <= 0)) {
-            forwardInputDown = false
-            backInputDown = false
+            // 没能量了只锁住油门轴(Shift/Ctrl)，俯仰(W/S)是纯气动操纵面，不需要发动机能量
+            downInputDown = false
+            sprintInputDown = false
             engineStart = false
             engineStartOver = false
             power *= 0.996f
@@ -888,26 +958,25 @@ object VehicleEngineUtils {
             }
 
             if (firstPassenger != null) {
-                if (!engineStart && forwardInputDown && power > 0.01f) {
+                if (!engineStart && downInputDown && power > 0.01f) {
                     engineStart = true
                     level().playSound(null, this, engineInfo.engineStartSound, soundSource, 3f, 1f)
                 }
 
-                if (sprintInputDown || onGround()) {
-                    powerAdd *= 1.6f
-                }
+                // 油门(Shift增/Ctrl减)是推力的唯一来源；WEP(推过100%)的过热判定在updateAircraftThrottle里处理
+                updateAircraftThrottle(engineInfo)
+                updateFlapsToggle()
 
                 if (energy >= energyCost) {
-                    val maxPower = if (sprintInputDown || onGround()) 3 else (if (power > 1) power - 0.012 else 1)
+                    // 100%以内的油门1:1映射为推力；超过100%的WEP部分额外放大，地面滑行时整体再放大到原有的最高倍率
+                    val basePower = Math.min(throttle, 1f)
+                    val wepPower = Math.max(throttle - 1f, 0f) * 2f
+                    val targetPower = if (onGround()) throttle * 3f else basePower + wepPower
 
-                    if (forwardInputDown) {
-                        power = Mth.clamp((power + 0.006f * powerAdd).toDouble(), -0.1, maxPower.toDouble()).toFloat()
-                    }
-
-                    if (backInputDown) {
-                        power = Math.max(
-                            power - 0.006f * powerReduce, if (onGround()) -0.2f else 0.025f
-                        )
+                    power = if (power < targetPower) {
+                        Math.min(power + 0.02f * powerAdd, targetPower)
+                    } else {
+                        Math.max(power - 0.02f * powerReduce, targetPower)
                     }
                 }
 
@@ -925,13 +994,15 @@ object VehicleEngineUtils {
                     holdTick = 0
                 }
 
-                // 刹车
-                if (downInputDown) {
+                // 减速板(独立按键，不再借用油门轴上的Shift)：地面刹车/空中急剧增加阻力
+                if (airbrakeInputDown) {
                     if (onGround()) {
                         power *= 0.92f
                         deltaMovement = deltaMovement.multiply(0.97, 1.0, 0.97)
                     } else {
-                        power = Math.max(power * 0.97f, if (onGround()) -0.3f else 0.025f)
+                        power = Math.max(power * 0.97f, 0.025f)
+                        // 减速板：直接对速度矢量做额外衰减，而不仅仅是减少推力
+                        deltaMovement = deltaMovement.multiply(0.955, 0.985, 0.955)
                     }
 
                     planeBreak = Math.min(planeBreak + 10, 60f)
@@ -945,7 +1016,10 @@ object VehicleEngineUtils {
                 downInputDown = false
             }
 
-            val rotSpeed = 0.3f + 3.2f * Mth.abs(calculateY(roll))
+            // 襟翼放下：以更小的转弯半径/更高瞬时转向权威为代价换取更高阻力（见下方f的额外衰减）
+            val flapsTurnBoost = if (flapsDown) 1.3f else 1f
+
+            val rotSpeed = (0.3f + 3.2f * Mth.abs(calculateY(roll))) * flapsTurnBoost
 
             var addY = Mth.clamp(Math.max(0.24f * speed.toFloat(), 0f) * mouseMoveSpeedX, -rotSpeed, rotSpeed)
             if (onGround()) {
@@ -956,15 +1030,32 @@ object VehicleEngineUtils {
             val addZ =
                 deltaRot - (if (onGround() || Mth.abs(roll) > 60) 0f else 0.02f * (60 - Mth.abs(roll)) / 60) * mouseMoveSpeedX * dotViewVector.toFloat()
 
-            yRot += yawSpeed * addY
+            // 俯仰(W/S)：反转手感——W低头(推杆)，S抬头(拉杆)，按住时直接接管/覆盖鼠标瞄准输出的俯仰指令，
+            // 和A/D覆盖滚转是同一套逻辑
+            val manualPitchAxis = (if (forwardInputDown) 1f else 0f) - (if (backInputDown) 1f else 0f)
+            val pitchOverrideActive = manualPitchAxis != 0f
+            val pitchCommand = if (pitchOverrideActive) manualPitchAxis * 3.5f else addX
+
+            // 方向舵(Q/E)：独立于滚转的偏航微调，不参与"朝转弯方向压杆"的自动配平
+            val rudderInput = (if (rudderRightInputDown) 1f else 0f) - (if (rudderLeftInputDown) 1f else 0f)
+            yRot += yawSpeed * addY + rudderInput * yawSpeed * 0.5f * (if (onGround()) 1.5f else 1f)
             if (!onGround()) {
-                xRot = Mth.clamp(xRot + pitchSpeed * addX, -clampPitch, clampPitch)
+                mouseAimPitchCommand = addX
+                // 俯仰增量必须按机体*当前姿态*的本地俯仰轴施加，而不是直接拍到世界系的xRot上——
+                // 否则大坡度/倒扣时"拉杆"会因为欧拉角万向节问题变成侧偏航甚至反向低头
+                VehicleVecUtils.applyLocalPitch(this, pitchSpeed * pitchCommand * flapsTurnBoost)
+                xRot = Mth.clamp(xRot, -clampPitch, clampPitch)
 
                 if (tickCount > 5) {
                     updateRotation(this)
                 }
 
-                setZRot(Mth.clamp(roll - rollSpeed * addZ, -clampRoll, clampRoll))
+                // Mouse Aim的"教官"配平：偏航指令自动带一点压杆动作，让转弯自然带坡度(bank-to-turn)，
+                // 而不是纯平转；持有A/D(deltaRot)时视为玩家手动接管滚转，教官配平让位
+                val autoBank = if (Mth.abs(deltaRot) < 0.01f) 0.18f * addY * dotViewVector.toFloat() else 0f
+                mouseAimYawCommand = addY
+                mouseAimRollCommand = autoBank
+                setZRot(Mth.clamp(roll - rollSpeed * (addZ + autoBank), -clampRoll, clampRoll))
             }
 
             // 自动回正
@@ -981,7 +1072,7 @@ object VehicleEngineUtils {
                 roll *= xSpeed
             }
 
-            if (Mth.abs(xRot) < 20 && Mth.abs(mouseMoveSpeedY) < 0.001) {
+            if (Mth.abs(xRot) < 20 && Mth.abs(mouseMoveSpeedY) < 0.001 && !pitchOverrideActive) {
                 xRot += if (deltaMovement.y() < 0) {
                     0.2f * deltaMovement.y.toFloat()
                 } else {
@@ -997,7 +1088,9 @@ object VehicleEngineUtils {
                 if (upInputDown) {
                     upInputDown = false
                     if (synchedGearRot == 0f && !onGround()) {
-                        gearUp = true
+                        if (canRetractGearSafely()) {
+                            gearUp = true
+                        }
                     } else if (synchedGearRot == 1f) {
                         gearUp = false
                     }
@@ -1042,8 +1135,10 @@ object VehicleEngineUtils {
                 15f
             )
 
-            flap2LRot = Mth.clamp(flapX - 15 * addZ, -15f, 15f)
-            flap2RRot = Mth.clamp(flapX + 15 * addZ, -15f, 15f)
+            // 襟翼放下时叠加一个固定的下偏基准角，视觉上体现"放襟翼"这个开关状态
+            val flapsDownOffset = if (flapsDown) 12f else 0f
+            flap2LRot = Mth.clamp(flapX - 15 * addZ + flapsDownOffset, -15f, 15f)
+            flap2RRot = Mth.clamp(flapX + 15 * addZ + flapsDownOffset, -15f, 15f)
 
             val flapY =
                 (1 - (Mth.abs(roll)) / 90) * Mth.clamp(mouseMoveSpeedX * 3, -15f, 15f) + calculateY(

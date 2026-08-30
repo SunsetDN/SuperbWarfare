@@ -59,7 +59,7 @@ Simple Bedrock Model 渲染，Curios 做饰品栏位，Cloth Config 做配置界
 | `recipe/`      | 自定义配方类型                                                                     |
 | `procedures/`  | 纪念用彩蛋代码，无意义                                                                 |
 | `script/`      | Rhino JS 脚本引擎集成                                                             |
-| `world/`       | 世界数据（TDMSavedData, phys/ 射线追踪扩展）                                            |
+| `../../run/world/`       | 世界数据（TDMSavedData, phys/ 射线追踪扩展）                                            |
 | `advancement/` | 自定义进度触发器                                                                    |
 
 ### `src/main/java/.../` (Java + 部分 Kotlin 混放)

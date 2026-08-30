@@ -24,6 +24,27 @@ import kotlin.math.min
 //@EventBusSubscriber
 object GunEventHandler {
     /**
+     * 退壳音效种类：0 普通，1 霰弹壳，2 大口径（狙击/重型）壳。
+     *
+     * 已改用 TACZ 弹药（[AmmoConsumer.AmmoConsumeType.CALIBER_AMMO]）的枪械不再有 [Ammo] 分类，
+     * 因此改按 [GunType] 判断；仍使用 SBW 自身弹药池（[AmmoConsumer.AmmoConsumeType.PLAYER_AMMO]）
+     * 的重型武器（[Ammo.HEAVY]）保持原判断方式。
+     */
+    fun shellCasingSoundKind(data: GunData): Int {
+        val consumer = data.selectedAmmoConsumer()
+        return when (consumer.type) {
+            AmmoConsumer.AmmoConsumeType.PLAYER_AMMO -> if (consumer.playerAmmoType == Ammo.HEAVY) 2 else 0
+            AmmoConsumer.AmmoConsumeType.CALIBER_AMMO -> when (data.get(GunProp.GUN_TYPE)) {
+                GunType.SHOTGUN -> 1
+                GunType.SNIPER -> 2
+                else -> 0
+            }
+
+            else -> 0
+        }
+    }
+
+    /**
      * 拉大栓
      */
     private fun handleGunBolt(data: GunData) {
@@ -68,32 +89,22 @@ object GunEventHandler {
         )
 
         com.atsuishio.superbwarfare.Mod.queueServerWork((data.bolt.actionTimer.get() / 2.0 + 1.5 * shooterHeight).toInt()) {
-            if (data.selectedAmmoConsumer().type == AmmoConsumer.AmmoConsumeType.PLAYER_AMMO) {
-                val ammoType = data.selectedAmmoConsumer().playerAmmoType
-                when (ammoType) {
-                    Ammo.SHOTGUN -> SoundTool.playLocalSound(
-                        shooter,
-                        ModSounds.SHELL_CASING_SHOTGUN.get(),
-                        max(0.75 - 0.12 * shooterHeight, 0.0).toFloat(),
-                        1f
-                    )
+            when (shellCasingSoundKind(data)) {
+                1 -> SoundTool.playLocalSound(
+                    shooter,
+                    ModSounds.SHELL_CASING_SHOTGUN.get(),
+                    max(0.75 - 0.12 * shooterHeight, 0.0).toFloat(),
+                    1f
+                )
 
-                    Ammo.SNIPER, Ammo.HEAVY -> SoundTool.playLocalSound(
-                        shooter,
-                        ModSounds.SHELL_CASING_50CAL.get(),
-                        max(1 - 0.15 * shooterHeight, 0.0).toFloat(),
-                        1f
-                    )
+                2 -> SoundTool.playLocalSound(
+                    shooter,
+                    ModSounds.SHELL_CASING_50CAL.get(),
+                    max(1 - 0.15 * shooterHeight, 0.0).toFloat(),
+                    1f
+                )
 
-                    else -> SoundTool.playLocalSound(
-                        shooter,
-                        ModSounds.SHELL_CASING_NORMAL.get(),
-                        max(1.5 - 0.2 * shooterHeight, 0.0).toFloat(),
-                        1f
-                    )
-                }
-            } else {
-                SoundTool.playLocalSound(
+                else -> SoundTool.playLocalSound(
                     shooter,
                     ModSounds.SHELL_CASING_NORMAL.get(),
                     max(1.5 - 0.2 * shooterHeight, 0.0).toFloat(),
@@ -273,9 +284,12 @@ object GunEventHandler {
 
             if (shooter is Player) {
                 val capability = shooter.getData(ModAttachments.PLAYER_VARIABLE).watch()
-                if (data.selectedAmmoConsumer().type == AmmoConsumer.AmmoConsumeType.PLAYER_AMMO) {
-                    val ammoType = data.selectedAmmoConsumer().playerAmmoType
+                val consumer = data.selectedAmmoConsumer()
+                if (consumer.type == AmmoConsumer.AmmoConsumeType.PLAYER_AMMO) {
+                    val ammoType = consumer.playerAmmoType
                     ammoType?.add(capability, count)
+                } else if (consumer.type == AmmoConsumer.AmmoConsumeType.CALIBER_AMMO) {
+                    consumer.caliberId?.let { capability.addCaliberAmmo(it, count) }
                 }
                 shooter.setData(ModAttachments.PLAYER_VARIABLE, capability)
                 capability.sync(shooter)
@@ -626,32 +640,22 @@ object GunEventHandler {
         )
 
         com.atsuishio.superbwarfare.Mod.queueServerWork((data.get(GunProp.PREPARE_EMPTY_TIME) / 2.0 + 3 + 1.5 * shooterHeight).toInt()) {
-            if (data.selectedAmmoConsumer().type == AmmoConsumer.AmmoConsumeType.PLAYER_AMMO) {
-                val ammoType = data.selectedAmmoConsumer().playerAmmoType
-                when (ammoType) {
-                    Ammo.SHOTGUN -> SoundTool.playLocalSound(
-                        shooter,
-                        ModSounds.SHELL_CASING_SHOTGUN.get(),
-                        max(0.75 - 0.12 * shooterHeight, 0.0).toFloat(),
-                        1f
-                    )
+            when (shellCasingSoundKind(data)) {
+                1 -> SoundTool.playLocalSound(
+                    shooter,
+                    ModSounds.SHELL_CASING_SHOTGUN.get(),
+                    max(0.75 - 0.12 * shooterHeight, 0.0).toFloat(),
+                    1f
+                )
 
-                    Ammo.SNIPER, Ammo.HEAVY -> SoundTool.playLocalSound(
-                        shooter,
-                        ModSounds.SHELL_CASING_50CAL.get(),
-                        max(1 - 0.15 * shooterHeight, 0.0).toFloat(),
-                        1f
-                    )
+                2 -> SoundTool.playLocalSound(
+                    shooter,
+                    ModSounds.SHELL_CASING_50CAL.get(),
+                    max(1 - 0.15 * shooterHeight, 0.0).toFloat(),
+                    1f
+                )
 
-                    else -> SoundTool.playLocalSound(
-                        shooter,
-                        ModSounds.SHELL_CASING_NORMAL.get(),
-                        max(1.5 - 0.2 * shooterHeight, 0.0).toFloat(),
-                        1f
-                    )
-                }
-            } else {
-                SoundTool.playLocalSound(
+                else -> SoundTool.playLocalSound(
                     shooter,
                     ModSounds.SHELL_CASING_NORMAL.get(),
                     max(1.5 - 0.2 * shooterHeight, 0.0).toFloat(),
@@ -683,32 +687,22 @@ object GunEventHandler {
         )
 
         com.atsuishio.superbwarfare.Mod.queueServerWork((8 + 1.5 * shooterHeight).toInt()) {
-            if (data.selectedAmmoConsumer().type == AmmoConsumer.AmmoConsumeType.PLAYER_AMMO) {
-                val ammoType = data.selectedAmmoConsumer().playerAmmoType
-                when (ammoType) {
-                    Ammo.SHOTGUN -> SoundTool.playLocalSound(
-                        shooter,
-                        ModSounds.SHELL_CASING_SHOTGUN.get(),
-                        max(0.75 - 0.12 * shooterHeight, 0.0).toFloat(),
-                        1f
-                    )
+            when (shellCasingSoundKind(data)) {
+                1 -> SoundTool.playLocalSound(
+                    shooter,
+                    ModSounds.SHELL_CASING_SHOTGUN.get(),
+                    max(0.75 - 0.12 * shooterHeight, 0.0).toFloat(),
+                    1f
+                )
 
-                    Ammo.SNIPER, Ammo.HEAVY -> SoundTool.playLocalSound(
-                        shooter,
-                        ModSounds.SHELL_CASING_50CAL.get(),
-                        max(1 - 0.15 * shooterHeight, 0.0).toFloat(),
-                        1f
-                    )
+                2 -> SoundTool.playLocalSound(
+                    shooter,
+                    ModSounds.SHELL_CASING_50CAL.get(),
+                    max(1 - 0.15 * shooterHeight, 0.0).toFloat(),
+                    1f
+                )
 
-                    else -> SoundTool.playLocalSound(
-                        shooter,
-                        ModSounds.SHELL_CASING_NORMAL.get(),
-                        max(1.5 - 0.2 * shooterHeight, 0.0).toFloat(),
-                        1f
-                    )
-                }
-            } else {
-                SoundTool.playLocalSound(
+                else -> SoundTool.playLocalSound(
                     shooter,
                     ModSounds.SHELL_CASING_NORMAL.get(),
                     max(1.5 - 0.2 * shooterHeight, 0.0).toFloat(),

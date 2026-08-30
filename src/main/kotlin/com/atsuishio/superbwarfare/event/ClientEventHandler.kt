@@ -13,6 +13,7 @@ import com.atsuishio.superbwarfare.client.overlay.VehicleMainWeaponHudOverlay
 import com.atsuishio.superbwarfare.client.shader.ThermalShaderHandler
 import com.atsuishio.superbwarfare.config.client.DisplayConfig
 import com.atsuishio.superbwarfare.config.server.MiscConfig
+import com.atsuishio.superbwarfare.client.sound.fmod.SbwFmodWeaponSoundManager
 import com.atsuishio.superbwarfare.data.gun.*
 import com.atsuishio.superbwarfare.data.gun.value.AttachmentType
 import com.atsuishio.superbwarfare.data.vehicle.subdata.EngineType
@@ -33,6 +34,7 @@ import net.minecraft.client.CameraType
 import net.minecraft.client.Minecraft
 import net.minecraft.core.BlockPos
 import net.minecraft.core.particles.ParticleTypes
+import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.network.chat.Component
 import net.minecraft.resources.ResourceLocation
 import net.minecraft.sounds.SoundEvents
@@ -765,6 +767,18 @@ object ClientEventHandler {
             }
             if (ModKeyMappings.MOVE_CTRL.isDown) {
                 keys = keys or 0b100000000
+            }
+            if (ModKeyMappings.AIRCRAFT_RUDDER_LEFT.isDown) {
+                keys = keys or 0b1000000000
+            }
+            if (ModKeyMappings.AIRCRAFT_RUDDER_RIGHT.isDown) {
+                keys = keys or 0b10000000000
+            }
+            if (ModKeyMappings.AIRCRAFT_TOGGLE_FLAPS.isDown) {
+                keys = keys or 0b100000000000
+            }
+            if (ModKeyMappings.AIRCRAFT_AIRBRAKE.isDown) {
+                keys = keys or 0b1000000000000
             }
         }
 
@@ -1807,10 +1821,20 @@ object ClientEventHandler {
         }
 
         val isSilent = data.attachment.get(AttachmentType.BARREL) == 2
-        val fire1p = if (isSilent) soundInfo.fire1PSilent else soundInfo.fire1P
 
-        if (fire1p != null) {
-            player.playSound(fire1p, 4f, ((2 * Math.random() - 1) * 0.05f + pitch).toFloat())
+        // FMOD 매핑이 있는 총이면 1인칭 발사음도 FMOD로 대체. 소음기 장착 시엔 원래 총소리
+        // 이벤트를 그대로 넘기고 SbwFmodWeaponSoundManager.playAt이 그 이벤트 자체의 진짜
+        // `IsSupressed` 파라미터를 켠다(없는 총만 gunType 기반 대체 이벤트로 넘어간다).
+        val gunType = data.get(GunProp.GUN_TYPE)
+        val fmodEvent = GunFmodEvents.shootEventFor(BuiltInRegistries.ITEM.getKey(item).path, gunType)
+
+        if (fmodEvent != null) {
+            SbwFmodWeaponSoundManager.playAt(fmodEvent, player, isSilent, gunType)
+        } else {
+            val fire1p = if (isSilent) soundInfo.fire1PSilent else soundInfo.fire1P
+            if (fire1p != null) {
+                player.playSound(fire1p, 4f, ((2 * Math.random() - 1) * 0.05f + pitch).toFloat())
+            }
         }
 
         val shooterHeight = player.eyePosition.distanceTo(
@@ -1829,36 +1853,27 @@ object ClientEventHandler {
 
         queueClientWorkIfDelayed((1 + 1.5 * shooterHeight).toInt()) {
             if (GunResource.compute(stack).ejectShell) {
-                if (data.selectedAmmoConsumer().type == AmmoConsumer.AmmoConsumeType.PLAYER_AMMO) {
-                    val ammoType: Ammo = data.selectedAmmoConsumer().playerAmmoType!!
-                    when (ammoType) {
-                        Ammo.SHOTGUN ->
-                            player.playSound(
-                                ModSounds.SHELL_CASING_SHOTGUN.get(),
-                                (0.75 - 0.12 * shooterHeight).coerceAtLeast(0.0).toFloat(),
-                                ((2 * Math.random() - 1) * 0.05f + 1.0f).toFloat()
-                            )
+                when (GunEventHandler.shellCasingSoundKind(data)) {
+                    1 ->
+                        player.playSound(
+                            ModSounds.SHELL_CASING_SHOTGUN.get(),
+                            (0.75 - 0.12 * shooterHeight).coerceAtLeast(0.0).toFloat(),
+                            ((2 * Math.random() - 1) * 0.05f + 1.0f).toFloat()
+                        )
 
-                        Ammo.SNIPER, Ammo.HEAVY ->
-                            player.playSound(
-                                ModSounds.SHELL_CASING_50CAL.get(),
-                                (1 - 0.15 * shooterHeight).coerceAtLeast(0.0).toFloat(),
-                                ((2 * Math.random() - 1) * 0.05f + 1.0f).toFloat()
-                            )
+                    2 ->
+                        player.playSound(
+                            ModSounds.SHELL_CASING_50CAL.get(),
+                            (1 - 0.15 * shooterHeight).coerceAtLeast(0.0).toFloat(),
+                            ((2 * Math.random() - 1) * 0.05f + 1.0f).toFloat()
+                        )
 
-                        else ->
-                            player.playSound(
-                                ModSounds.SHELL_CASING_NORMAL.get(),
-                                (1.5 - 0.2 * shooterHeight).coerceAtLeast(0.0).toFloat(),
-                                ((2 * Math.random() - 1) * 0.05f + 1.0f).toFloat()
-                            )
-                    }
-                } else {
-                    player.playSound(
-                        ModSounds.SHELL_CASING_NORMAL.get(),
-                        (1.5 - 0.2 * shooterHeight).coerceAtLeast(0.0).toFloat(),
-                        ((2 * Math.random() - 1) * 0.05f + 1.0f).toFloat()
-                    )
+                    else ->
+                        player.playSound(
+                            ModSounds.SHELL_CASING_NORMAL.get(),
+                            (1.5 - 0.2 * shooterHeight).coerceAtLeast(0.0).toFloat(),
+                            ((2 * Math.random() - 1) * 0.05f + 1.0f).toFloat()
+                        )
                 }
             }
         }

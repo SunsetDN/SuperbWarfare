@@ -15,7 +15,7 @@
   "AvailableFireModes": [
     "Auto"
   ],
-  "AmmoType": "@RifleAmmo",
+  "AmmoType": "@tacz:308",
   "ShootDelay": 10,
   "HeatPerShoot": 0.5,
   "DamageReduce": {

@@ -63,6 +63,11 @@ class AmmoConsumer : DeserializeFromString, PropertyModifier<GunData, DefaultGun
     @kotlinx.serialization.Transient
     var playerAmmoType: Ammo? = null
 
+    /** TACZ 弹药口径 id（如 "tacz:556x45"），由 [com.atsuishio.superbwarfare.data.gun.ammo_consumer_strategy.TaczAmmoStrategy] 设置 */
+    @Transient
+    @kotlinx.serialization.Transient
+    var caliberId: net.minecraft.resources.ResourceLocation? = null
+
     @Transient
     @kotlinx.serialization.Transient
     var stack: ItemStack = ItemStack.EMPTY
@@ -82,6 +87,7 @@ class AmmoConsumer : DeserializeFromString, PropertyModifier<GunData, DefaultGun
         INFINITE,
 
         PLAYER_AMMO,
+        CALIBER_AMMO,
         ITEM,
         ENERGY,
     }

@@ -26,6 +26,7 @@ import com.atsuishio.superbwarfare.init.ModSounds
 import com.atsuishio.superbwarfare.item.EnergyStorageItem
 import com.atsuishio.superbwarfare.item.ItemScreenProvider
 import com.atsuishio.superbwarfare.network.message.receive.ClientIndicatorMessage
+import com.atsuishio.superbwarfare.network.message.receive.GunFireFmodSoundMessage
 import com.atsuishio.superbwarfare.perk.Perk
 import com.atsuishio.superbwarfare.resource.gun.GunResource
 import com.atsuishio.superbwarfare.tools.*
@@ -36,6 +37,7 @@ import net.minecraft.client.gui.screens.Screen
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Holder
 import net.minecraft.core.component.DataComponents
+import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.network.protocol.game.ClientboundStopSoundPacket
 import net.minecraft.server.level.ServerLevel
 import net.minecraft.server.level.ServerPlayer
@@ -625,6 +627,19 @@ abstract class GunItem(properties: Properties) : Item(properties.stacksTo(1)), I
         val soundRadius = data.get(GunProp.SOUND_RADIUS).toFloat()
         val soundInfo = data.get(GunProp.SOUND_INFO)
         val isSilent = data.attachment.get(AttachmentType.BARREL) == 2
+
+        // FMOD 매핑이 있는 총이면, 거리별 3단 볼륨 브로드캐스트 대신 FMOD 3D 이벤트 하나를(뱅크의
+        // 감쇠 커브가 알아서 원근을 표현) 근처 클라이언트들에게 재생시킨다. 소음기 장착 시엔 항상
+        // 원래 총소리 이벤트를 그대로 보낸다 — 그 이벤트 자체가 대부분 진짜 `IsSupressed` 파라미터를
+        // 갖고 있어서(SbwFmodWeaponSoundManager.playAt의 doc 참고) 이 총 고유의 소음기 소리가
+        // 이미 있고, 없는 총만 클라이언트 쪽에서 gunType 기반 대체 이벤트로 넘어간다.
+        val gunType = data.get(GunProp.GUN_TYPE)
+        val fmodEvent = GunFmodEvents.shootEventFor(BuiltInRegistries.ITEM.getKey(this).path, gunType)
+
+        if (fmodEvent != null) {
+            sendPacketToTrackingEntity(shooter, GunFireFmodSoundMessage(shooter.id, fmodEvent, isSilent, gunType))
+            return
+        }
 
         val sound3p = if (isSilent) soundInfo.fire3PSilent else soundInfo.fire3P
         if (sound3p != null) {

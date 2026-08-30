@@ -20,7 +20,7 @@
   "DamageReduce": {
     "Type": "Rifle"
   },
-  "AmmoType": "@RifleAmmo",
+  "AmmoType": "@tacz:308",
   "Icon": "superbwarfare:textures/gun_icon/m_60_icon.png",
   "AvailablePerks": [
     "@Ammo",

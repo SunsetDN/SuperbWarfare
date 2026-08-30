@@ -16,7 +16,7 @@
   "DamageReduce": {
     "Type": "Handgun"
   },
-  "AmmoType": "@HandgunAmmo",
+  "AmmoType": "@tacz:9mm",
   "Icon": "superbwarfare:textures/gun_icon/m_1911_icon.png",
   "AvailablePerks": [
     "@Ammo",

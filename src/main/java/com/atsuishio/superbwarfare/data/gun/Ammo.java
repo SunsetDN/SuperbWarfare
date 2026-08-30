@@ -16,10 +16,6 @@ import java.util.Locale;
 import java.util.function.Supplier;
 
 public enum Ammo {
-    HANDGUN(ChatFormatting.GREEN, ModItems.HANDGUN_AMMO),
-    RIFLE(ChatFormatting.AQUA, ModItems.RIFLE_AMMO),
-    SHOTGUN(ChatFormatting.RED, ModItems.SHOTGUN_AMMO),
-    SNIPER(ChatFormatting.GOLD, ModItems.SNIPER_AMMO),
     HEAVY(ChatFormatting.LIGHT_PURPLE, ModItems.HEAVY_AMMO);
 
     /**

@@ -21,7 +21,7 @@
   "DamageReduce": {
     "Type": "Rifle"
   },
-  "AmmoType": "@RifleAmmo",
+  "AmmoType": "@tacz:556x45",
   "Icon": "superbwarfare:textures/gun_icon/insidious_icon.png",
   "AvailablePerks": [
     "@Ammo",

@@ -209,10 +209,6 @@ class ModCustomLootProvider() : LootTableSubProvider {
             }
 
             addMultiItems(2f, 0f) {
-                ModItems.HANDGUN_AMMO_BOX weighted 12 withCount 1..2
-                ModItems.RIFLE_AMMO_BOX weighted 20 withCount 1..2
-                ModItems.SNIPER_AMMO_BOX weighted 10 withCount 1..2
-                ModItems.SHOTGUN_AMMO_BOX weighted 17 withCount 1..2
                 ModItems.GRENADE_40MM weighted 6 withCount 1..3
                 ModItems.RPG_ROCKET_TBG weighted 2 withCount 1..2
                 ModItems.RPG_ROCKET_STANDARD weighted 2 withCount 1..2
@@ -275,10 +271,6 @@ class ModCustomLootProvider() : LootTableSubProvider {
             }
 
             addMultiItems(2f, 0f) {
-                ModItems.HANDGUN_AMMO_BOX weighted 12 withCount 1..3
-                ModItems.RIFLE_AMMO_BOX weighted 20 withCount 1..3
-                ModItems.SNIPER_AMMO_BOX weighted 10 withCount 1..3
-                ModItems.SHOTGUN_AMMO_BOX weighted 17 withCount 1..3
                 ModItems.GRENADE_40MM weighted 6 withCount 2..6
                 ModItems.RPG_ROCKET_TBG weighted 2 withCount 2..4
                 ModItems.RPG_ROCKET_STANDARD weighted 2 withCount 2..4
@@ -320,10 +312,6 @@ class ModCustomLootProvider() : LootTableSubProvider {
             }
 
             addMultiItems(2f, 0f) {
-                ModItems.HANDGUN_AMMO_BOX weighted 12 withCount 2..4
-                ModItems.RIFLE_AMMO_BOX weighted 20 withCount 2..4
-                ModItems.SNIPER_AMMO_BOX weighted 10 withCount 2..4
-                ModItems.SHOTGUN_AMMO_BOX weighted 17 withCount 2..4
                 ModItems.HEAVY_AMMO weighted 10 withCount 10..24
                 ModItems.GRENADE_40MM weighted 6 withCount 4..12
                 ModItems.RPG_ROCKET_TBG weighted 2 withCount 4..8
@@ -393,10 +381,6 @@ class ModCustomLootProvider() : LootTableSubProvider {
                 ModItems.COMMON_MATERIAL_PACK weighted 6 withCount 3
                 ModItems.STEEL_BLOCK weighted 14
                 Items.GOLD_BLOCK weighted 20
-                ModItems.HANDGUN_AMMO weighted 6 withCount 64
-                ModItems.RIFLE_AMMO weighted 6 withCount 64
-                ModItems.SHOTGUN_AMMO weighted 6 withCount 32
-                ModItems.SNIPER_AMMO weighted 6 withCount 32
                 ModItems.HEAVY_AMMO weighted 6 withCount 16
                 Items.COAL_BLOCK weighted 30 withCount 9
             }, {

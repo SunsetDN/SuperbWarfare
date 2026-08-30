@@ -65,54 +65,6 @@
           "functions": [
             {
               "add": false,
-              "count": 64.0,
-              "function": "minecraft:set_count"
-            }
-          ],
-          "name": "superbwarfare:handgun_ammo",
-          "weight": 6
-        },
-        {
-          "type": "minecraft:item",
-          "functions": [
-            {
-              "add": false,
-              "count": 64.0,
-              "function": "minecraft:set_count"
-            }
-          ],
-          "name": "superbwarfare:rifle_ammo",
-          "weight": 6
-        },
-        {
-          "type": "minecraft:item",
-          "functions": [
-            {
-              "add": false,
-              "count": 32.0,
-              "function": "minecraft:set_count"
-            }
-          ],
-          "name": "superbwarfare:shotgun_ammo",
-          "weight": 6
-        },
-        {
-          "type": "minecraft:item",
-          "functions": [
-            {
-              "add": false,
-              "count": 32.0,
-              "function": "minecraft:set_count"
-            }
-          ],
-          "name": "superbwarfare:sniper_ammo",
-          "weight": 6
-        },
-        {
-          "type": "minecraft:item",
-          "functions": [
-            {
-              "add": false,
               "count": 16.0,
               "function": "minecraft:set_count"
             }

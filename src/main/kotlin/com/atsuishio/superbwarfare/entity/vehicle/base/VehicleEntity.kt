@@ -448,6 +448,34 @@ open class VehicleEntity(pEntityType: EntityType<*>, pLevel: Level) : Entity(pEn
 
     open var gearRot = 0f
 
+    // === War Thunder风格飞行模型：油门/襟翼/减速板/方向舵 ===
+    /** 0f~1f为正常油门范围，超过1f为WEP（战时应急功率），由sprintInputDown触发 */
+    open var throttle by THROTTLE
+
+    /** WEP过热值，0f~1f，达到1f后强制回落到正常油门上限，冷却后才能再次进入WEP */
+    open var wepHeat = 0f
+
+    /** 襟翼放下状态：由flapsToggleInputDown的上升沿切换，增加升力/转向半径缩小，但增加阻力 */
+    open var flapsDown by FLAPS_DOWN
+    open var wasFlapsToggleInputDown = false
+
+    @get:JvmName("rudderLeftInputDown")
+    open var rudderLeftInputDown by RUDDER_LEFT_INPUT_DOWN
+
+    @get:JvmName("rudderRightInputDown")
+    open var rudderRightInputDown by RUDDER_RIGHT_INPUT_DOWN
+
+    @get:JvmName("flapsToggleInputDown")
+    open var flapsToggleInputDown by FLAPS_TOGGLE_INPUT_DOWN
+
+    @get:JvmName("airbrakeInputDown")
+    open var airbrakeInputDown by AIRBRAKE_INPUT_DOWN
+
+    /** 鼠标瞄准辅助（"教官"）算出的、这一tick自然应有的俯仰/滚转/偏航修正量，供direct override判定使用 */
+    open var mouseAimPitchCommand = 0f
+    open var mouseAimYawCommand = 0f
+    open var mouseAimRollCommand = 0f
+
     open var engineStart = false
     open var engineStartOver = false
     open var holdTick = 0
@@ -538,6 +566,14 @@ open class VehicleEntity(pEntityType: EntityType<*>, pLevel: Level) : Entity(pEn
             (keys.toInt() and 0b10000000) > 0
         sprintInputDown =
             (keys.toInt() and 256) > 0
+        rudderLeftInputDown =
+            (keys.toInt() and 0b1000000000) > 0
+        rudderRightInputDown =
+            (keys.toInt() and 0b10000000000) > 0
+        flapsToggleInputDown =
+            (keys.toInt() and 0b100000000000) > 0
+        airbrakeInputDown =
+            (keys.toInt() and 0b1000000000000) > 0
     }
 
     @get:JvmName("forwardInputDown")
@@ -1038,6 +1074,12 @@ open class VehicleEntity(pEntityType: EntityType<*>, pLevel: Level) : Entity(pEn
             define(SPRINT_INPUT_DOWN, false)
 
             define(PLANE_BREAK, 0f)
+            define(THROTTLE, 0f)
+            define(FLAPS_DOWN, false)
+            define(RUDDER_LEFT_INPUT_DOWN, false)
+            define(RUDDER_RIGHT_INPUT_DOWN, false)
+            define(FLAPS_TOGGLE_INPUT_DOWN, false)
+            define(AIRBRAKE_INPUT_DOWN, false)
             define(SELECTED_WEAPON, List(maxPassengers) { 0 })
             define(ENERGY, 0)
             define(SYNCHED_PROPELLER_ROT, 0f)
@@ -1630,6 +1672,8 @@ open class VehicleEntity(pEntityType: EntityType<*>, pLevel: Level) : Entity(pEn
         decoyReloadCoolDown = compound.getInt("DecoyReloadCoolDown")
         synchedGearRot = compound.getFloat("GearRot")
         gearUp = compound.getBoolean("GearUp")
+        throttle = compound.getFloat("Throttle")
+        flapsDown = compound.getBoolean("FlapsDown")
         propellerRot = compound.getFloat("PropellerRot")
         chargeProgress = compound.getFloat("ChargeProgress")
         lastAttackerUUID = compound.getString("LastAttacker")
@@ -1800,6 +1844,8 @@ open class VehicleEntity(pEntityType: EntityType<*>, pLevel: Level) : Entity(pEn
         compound.putInt("DecoyReloadCoolDown", decoyReloadCoolDown)
         compound.putFloat("GearRot", synchedGearRot)
         compound.putBoolean("GearUp", gearUp)
+        compound.putFloat("Throttle", throttle)
+        compound.putBoolean("FlapsDown", flapsDown)
         compound.putFloat("PropellerRot", propellerRot)
         compound.putFloat("ChargeProgress", chargeProgress)
 
@@ -5262,6 +5308,30 @@ open class VehicleEntity(pEntityType: EntityType<*>, pLevel: Level) : Entity(pEn
         @JvmField
         val PLANE_BREAK: EntityDataAccessor<Float> =
             SynchedEntityData.defineId(VehicleEntity::class.java, EntityDataSerializers.FLOAT)
+
+        @JvmField
+        val THROTTLE: EntityDataAccessor<Float> =
+            SynchedEntityData.defineId(VehicleEntity::class.java, EntityDataSerializers.FLOAT)
+
+        @JvmField
+        val FLAPS_DOWN: EntityDataAccessor<Boolean> =
+            SynchedEntityData.defineId(VehicleEntity::class.java, EntityDataSerializers.BOOLEAN)
+
+        @JvmField
+        val RUDDER_LEFT_INPUT_DOWN: EntityDataAccessor<Boolean> =
+            SynchedEntityData.defineId(VehicleEntity::class.java, EntityDataSerializers.BOOLEAN)
+
+        @JvmField
+        val RUDDER_RIGHT_INPUT_DOWN: EntityDataAccessor<Boolean> =
+            SynchedEntityData.defineId(VehicleEntity::class.java, EntityDataSerializers.BOOLEAN)
+
+        @JvmField
+        val FLAPS_TOGGLE_INPUT_DOWN: EntityDataAccessor<Boolean> =
+            SynchedEntityData.defineId(VehicleEntity::class.java, EntityDataSerializers.BOOLEAN)
+
+        @JvmField
+        val AIRBRAKE_INPUT_DOWN: EntityDataAccessor<Boolean> =
+            SynchedEntityData.defineId(VehicleEntity::class.java, EntityDataSerializers.BOOLEAN)
 
         @JvmField
         @ExcludeBvrSync("Energy")

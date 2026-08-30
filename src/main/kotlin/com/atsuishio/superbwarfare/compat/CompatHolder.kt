@@ -18,6 +18,10 @@ object CompatHolder {
     const val REALCAMERA: String = "realcamera"
     const val NET_MUSIC: String = "netmusic"
     const val SABLE: String = "sable"
+    const val TACZ: String = "tacz"
+
+    @JvmStatic
+    fun hasTacz(): Boolean = ModList.get().isLoaded(TACZ)
 
     @SubscribeEvent
     fun onInterModEnqueue(event: InterModEnqueueEvent) {
