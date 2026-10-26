@@ -31,7 +31,8 @@ object VehicleAircraftFlightUtils {
      */
     @JvmStatic
     fun VehicleEntity.updateAircraftThrottle(engineInfo: EngineInfo.Aircraft) {
-        val throttleStep = 0.012f
+        // 约2秒从0推到100%(原来约4秒，太迟钝)
+        val throttleStep = 0.025f
 
         if (downInputDown && !sprintInputDown) {
             throttle = Mth.clamp(throttle + throttleStep, 0f, THROTTLE_WEP_CAP)

@@ -739,6 +739,11 @@ abstract class GunItem(properties: Properties) : Item(properties.stacksTo(1)), I
                 entity.setGunItemId(stack)
             }
 
+            // TACZ 口径弹药（"@ns:id"）：把弹药 id 写进弹射物，供附属模组区分同一种弹射物的不同弹种
+            data.selectedAmmoConsumer().ammo?.trim()?.takeIf { it.startsWith("@") && ':' in it }?.let {
+                entity.persistentData.putString("AmmoId", it.substring(1).trim())
+            }
+
             // SBW弹射物专属属性
             if (entity is IBulletProperties) {
                 with(entity) {

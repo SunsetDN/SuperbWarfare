@@ -153,17 +153,76 @@
       "CrosshairColor": "0x66FF00",
       "Name": "weapon.superbwarfare.cannon_ap",
       "AmmoType": [
-        "superbwarfare:large_shell_ap",
         {
-          "Ammo": "superbwarfare:large_shell_he",
+          "Ammo": "@dncity:m829",
+          "Override": {
+            "Icon": "superbwarfare:textures/overlay/vehicle/weapon/icons/ap_shell.png",
+            "ShellType": "AP",
+            "Velocity": 20.0,
+            "Damage": 700,
+            "ExplosionDamage": 0,
+            "ExplosionRadius": 0,
+            "Name": "weapon.dncity.m829"
+          }
+        },
+        {
+          "Ammo": "@dncity:m829a1",
+          "Override": {
+            "Icon": "superbwarfare:textures/overlay/vehicle/weapon/icons/ap_shell.png",
+            "ShellType": "AP",
+            "Velocity": 18.9,
+            "Damage": 720,
+            "ExplosionDamage": 0,
+            "ExplosionRadius": 0,
+            "Name": "weapon.dncity.m829a1"
+          }
+        },
+        {
+          "Ammo": "@dncity:m829a2",
+          "Override": {
+            "Icon": "superbwarfare:textures/overlay/vehicle/weapon/icons/ap_shell.png",
+            "ShellType": "AP",
+            "Velocity": 20.1,
+            "Damage": 750,
+            "ExplosionDamage": 0,
+            "ExplosionRadius": 0,
+            "Name": "weapon.dncity.m829a2"
+          }
+        },
+        {
+          "Ammo": "@dncity:m829a3",
+          "Override": {
+            "Icon": "superbwarfare:textures/overlay/vehicle/weapon/icons/ap_shell.png",
+            "ShellType": "AP",
+            "Velocity": 18.6,
+            "Damage": 800,
+            "ExplosionDamage": 0,
+            "ExplosionRadius": 0,
+            "Name": "weapon.dncity.m829a3"
+          }
+        },
+        {
+          "Ammo": "@dncity:m830",
           "Override": {
             "Icon": "superbwarfare:textures/overlay/vehicle/weapon/icons/he_shell.png",
             "ShellType": "HE",
-            "Velocity": 15,
-            "Damage": 250,
-            "ExplosionDamage": 120,
-            "ExplosionRadius": 10,
-            "Name": "weapon.superbwarfare.cannon_he"
+            "Velocity": 13.7,
+            "Damage": 450,
+            "ExplosionDamage": 110,
+            "ExplosionRadius": 4,
+            "Name": "weapon.dncity.m830"
+          }
+        },
+        {
+          "Ammo": "@dncity:m830a1",
+          "Override": {
+            "Icon": "superbwarfare:textures/overlay/vehicle/weapon/icons/he_shell.png",
+            "ShellType": "HE",
+            "Velocity": 16.8,
+            "Damage": 400,
+            "ExplosionDamage": 140,
+            "ExplosionRadius": 6,
+            "Name": "weapon.dncity.m830a1"
           }
         },
         {

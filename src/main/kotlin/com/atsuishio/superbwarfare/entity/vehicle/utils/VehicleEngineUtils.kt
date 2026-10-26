@@ -633,6 +633,8 @@ object VehicleEngineUtils {
 
     @JvmStatic
     fun VehicleEntity.helicopterEngine(engineInfo: EngineInfo.Helicopter) {
+        // 外部飞行模型(见ExternalFlightModel)：只接管旋翼推力/阻力带来的速度变化，残骸坠落仍走原逻辑
+        val external = ExternalFlightModel.of(this)?.takeIf { health > 0.1f * getMaxHealth() }
         val energyCost = engineInfo.energyCostRate.toInt()
         val powerAdd = engineInfo.increment
         val powerReduce = engineInfo.decrement
@@ -644,9 +646,13 @@ object VehicleEngineUtils {
 
         if (onGround()) {
             deltaMovement = deltaMovement.multiply(0.85, 1.0, 0.85)
+        } else if (external != null) {
+            if (!sympatheticDetonated) {
+                setZRot(roll * 0.99f)
+            }
         } else {
             if (!sympatheticDetonated) {
-                setZRot(roll * (if (backInputDown) 0.9f else 0.99f))
+                setZRot(roll * 0.99f)
             }
             val f = Mth.clamp(
                 0.93499f - 0.01 * deltaMovement.lengthSqr() + (0.07 * speed) + 0.001f * Mth.abs(
@@ -714,10 +720,10 @@ object VehicleEngineUtils {
 
                 if (rightInputDown) {
                     holdTick++
-                    deltaRot -= 1f * Math.min(holdTick, 7) * power
+                    deltaRot -= 0.12f * Math.min(holdTick, 7)
                 } else if (leftInputDown) {
                     holdTick++
-                    deltaRot += 1f * Math.min(holdTick, 7) * power
+                    deltaRot += 0.12f * Math.min(holdTick, 7)
                 } else {
                     holdTick = 0
                 }
@@ -726,12 +732,17 @@ object VehicleEngineUtils {
                 // 所以周期变距(俯仰/滚转)也要从原来的"+="速率累加改成"lerp向目标倾转角"——
                 // 否则光标停在偏移位置不动时，原来的+=写法会让机体一直转下去不会停
                 val manualRollOverride = Mth.abs(deltaRot) > 0.01f
+                // 旋翼转速换算成0..1(power上限0.12)：原来直接乘synchedPropellerRot，所有姿态响应只有应有的约1/10，操纵感极其迟钝
+                val rotor = Mth.clamp(synchedPropellerRot / 0.1f, 0f, 1f)
                 if (!onGround()) {
                     val cyclicMaxPitch = 22f
                     val cyclicMaxRoll = 28f
 
-                    val targetPitch = Mth.clamp(mouseMoveSpeedY * cyclicMaxPitch, -cyclicMaxPitch, cyclicMaxPitch)
-                    val pitchLerpRate = Mth.clamp(0.15f * pitchSpeed, 0.03f, 0.5f) * synchedPropellerRot
+                    // War Thunder式：W/S手动周期变距(W低头前飞，S抬头)，按住时接管鼠标的俯仰指令
+                    val manualCyclic = (if (forwardInputDown) 1f else 0f) - (if (backInputDown) 1f else 0f)
+                    val targetPitch = if (manualCyclic != 0f) manualCyclic * cyclicMaxPitch
+                    else Mth.clamp(mouseMoveSpeedY * cyclicMaxPitch, -cyclicMaxPitch, cyclicMaxPitch)
+                    val pitchLerpRate = Mth.clamp(0.15f * pitchSpeed, 0.03f, 0.5f) * rotor
                     // 周期变距的俯仰增量同样必须按机体本地俯仰轴施加（原理同aircraftEngine），
                     // 否则大坡度周期倾转时也会有同样的欧拉角万向节问题
                     val pitchDelta = Mth.wrapDegrees(targetPitch - xRot) * pitchLerpRate
@@ -742,7 +753,7 @@ object VehicleEngineUtils {
                         setZRot(roll - rollSpeed * deltaRot)
                     } else {
                         val targetRoll = Mth.clamp(mouseMoveSpeedX * cyclicMaxRoll, -cyclicMaxRoll, cyclicMaxRoll)
-                        val rollLerpRate = Mth.clamp(0.15f * rollSpeed, 0.03f, 0.5f) * synchedPropellerRot
+                        val rollLerpRate = Mth.clamp(0.15f * rollSpeed, 0.03f, 0.5f) * rotor
                         setZRot(lerpAngle(roll, targetRoll, rollLerpRate))
                     }
                 }
@@ -750,7 +761,7 @@ object VehicleEngineUtils {
                 // 方向舵(Q/E)：独立于周期变距的偏航微调，叠加在鼠标横向偏移带来的协调转弯偏航分量上
                 val rudderInput = (if (rudderRightInputDown) 1f else 0f) - (if (rudderLeftInputDown) 1f else 0f)
                 yRot += yawSpeed * Mth.clamp(
-                    (if (onGround()) 0.1f else 2f) * mouseMoveSpeedX * synchedPropellerRot + (if (subEngineDamaged) 25 else 0) * synchedPropellerRot,
+                    (if (onGround()) 0.3f else 3f) * mouseMoveSpeedX * rotor + (if (subEngineDamaged) 25 else 0) * synchedPropellerRot,
                     -10f,
                     10f
                 ) + rudderInput * yawSpeed * 0.5f
@@ -764,13 +775,14 @@ object VehicleEngineUtils {
 
             if (energy <= energyCost || (maxEnergy > 0 && energy <= 0)) {
                 power *= 0.995f
-                forwardInputDown = false
-                backInputDown = false
+                downInputDown = false
+                sprintInputDown = false
                 engineStart = false
                 engineStartOver = false
             } else {
-                val up = forwardInputDown
-                val down = downInputDown
+                // 总距：Shift增加，Ctrl减少(War Thunder式)；W/S留给周期变距
+                val up = downInputDown && !sprintInputDown
+                val down = sprintInputDown && !downInputDown
 
                 if (upInputDown) {
                     upInputDown = false
@@ -787,27 +799,19 @@ object VehicleEngineUtils {
                     power = Math.min(power + 0.0007f * powerAdd * Math.min(holdPowerTick, 10), 0.12f)
                 }
 
-                if (engineStartOver) {
-                    if (down) {
-                        holdPowerTick++
-                        power = Math.max(
-                            power - 0.001f * powerReduce * Math.min(holdPowerTick, 5),
-                            if (onGround()) 0f else 0.035f / lift
-                        )
-                    } else if (backInputDown) {
-                        holdPowerTick++
-                        power = Math.max(
-                            power - 0.001f * powerReduce * Math.min(holdPowerTick, 5),
-                            if (onGround()) 0f else 0.058f / lift
-                        )
-                    }
+                if (engineStartOver && down) {
+                    holdPowerTick++
+                    power = Math.max(
+                        power - 0.001f * powerReduce * Math.min(holdPowerTick, 5),
+                        if (onGround()) 0f else 0.035f / lift
+                    )
                 }
 
                 if (engineStart && !engineStartOver) {
                     power = Math.min(power + 0.0012f * powerAdd, 0.045f)
                 }
 
-                if (!(up || down || backInputDown) && engineStartOver) {
+                if (!(up || down) && engineStartOver) {
                     val force = (if (hoverMode) 0.01f else 0.002f) * deltaMovement.y().toFloat()
                     power = if (deltaMovement.y() < 0) {
                         Math.min(power - force, 0.12f)
@@ -850,9 +854,15 @@ object VehicleEngineUtils {
             )
         }
 
-        deltaMovement = deltaMovement.add(
-            getUpVec(1f).scale((synchedPropellerRot * lift * 0.66f).toDouble())
-        )
+        if (external != null) {
+            // SBW的power上限为0.12，换算成0..1的总距
+            external.tickHelicopter(this, Mth.clamp(power / 0.12f, 0f, 1f))
+            deltaMovement = deltaMovement.add(0.0, computed().gravity, 0.0)
+        } else {
+            deltaMovement = deltaMovement.add(
+                getUpVec(1f).scale((synchedPropellerRot * lift * 0.66f).toDouble())
+            )
+        }
 
         if (power > 0.04f) {
             engineStart = true
@@ -867,6 +877,12 @@ object VehicleEngineUtils {
 
     @JvmStatic
     fun VehicleEntity.aircraftEngine(engineInfo: EngineInfo.Aircraft) {
+        // 外部飞行模型(见ExternalFlightModel)接管受力与姿态；残骸(血量<10%)的坠落仍走下面的原逻辑
+        val external = ExternalFlightModel.of(this)
+        if (external != null && health > 0.1f * getMaxHealth()) {
+            externalAircraftEngine(engineInfo, external)
+            return
+        }
         var powerAdd = engineInfo.increment
         val powerReduce = engineInfo.decrement
         val pitchSpeed = engineInfo.pitchSpeed
@@ -1211,6 +1227,146 @@ object VehicleEngineUtils {
             engineStartOver = true
         }
 
+        if (power < 0.0004f) {
+            engineStart = false
+            engineStartOver = false
+        }
+    }
+
+    /**
+     * 外部飞行模型下的固定翼：这里只保留SBW自己的系统(能量、油门/WEP、襟翼开关、起落架、减速板、引擎启动、动画)，
+     * 速度与姿态全部交给[ExternalFlightModel.tickFixedWing]。
+     */
+    private fun VehicleEntity.externalAircraftEngine(engineInfo: EngineInfo.Aircraft, external: ExternalFlightModel) {
+        val energyCost = (engineInfo.energyCostRate * Mth.abs(power)).toInt()
+
+        if (isInFluidType && tickCount % 4 == 0) {
+            deltaMovement = deltaMovement.multiply(0.6, 0.6, 0.6)
+            if (lastTickSpeed > 0.4) {
+                hurt(
+                    ModDamageTypes.causeVehicleStrikeDamage(
+                        level().registryAccess(),
+                        this,
+                        if (getFirstPassenger() == null) this else getFirstPassenger()
+                    ), (20 * ((lastTickSpeed - 0.4) * (lastTickSpeed - 0.4))).toFloat()
+                )
+            }
+            crash = true
+        }
+
+        val hasFuel = !(energy <= energyCost || (maxEnergy > 0 && energy <= 0))
+        if (!hasFuel) {
+            downInputDown = false
+            sprintInputDown = false
+            engineStart = false
+            engineStartOver = false
+            throttle = Math.max(throttle - 0.01f, 0f)
+        } else {
+            consumeEnergy(energyCost)
+        }
+
+        val pilot = firstPassenger
+        if (pilot == null || isInFluidType) {
+            leftInputDown = false
+            rightInputDown = false
+            forwardInputDown = false
+            backInputDown = false
+            sprintInputDown = false
+            downInputDown = false
+            throttle = Math.max(throttle - 0.01f, 0f)
+        } else {
+            if (!engineStart && downInputDown && throttle > 0.01f) {
+                engineStart = true
+                level().playSound(null, this, engineInfo.engineStartSound, soundSource, 3f, 1f)
+            }
+            updateAircraftThrottle(engineInfo)
+            updateFlapsToggle()
+            if (airbrakeInputDown) {
+                planeBreak = Math.min(planeBreak + 10, 60f)
+            }
+        }
+
+        // A/D滚转：沿用原来的按住渐增手感，换算成-1..1的压杆量
+        if (!onGround() && pilot != null) {
+            if (rightInputDown) {
+                holdTick++
+                deltaRot -= 0.05f * Math.min(holdTick, 12)
+            } else if (leftInputDown) {
+                holdTick++
+                deltaRot += 0.05f * Math.min(holdTick, 12)
+            } else {
+                holdTick = 0
+            }
+        } else {
+            holdTick = 0
+        }
+
+        // 起落架(与原逻辑相同)
+        if (engineInfo.hasGear) {
+            if (upInputDown) {
+                upInputDown = false
+                if (synchedGearRot == 0f && !onGround()) {
+                    if (canRetractGearSafely()) {
+                        gearUp = true
+                    }
+                } else if (synchedGearRot == 1f) {
+                    gearUp = false
+                }
+            }
+            if (onGround()) {
+                gearUp = false
+            }
+            synchedGearRot = if (gearUp) Math.min(synchedGearRot + 0.05f, 1f) else Math.max(synchedGearRot - 0.05f, 0f)
+            gearRot = synchedGearRot * engineInfo.gearRotateAngle
+        }
+
+        val effectiveThrottle = if (hasFuel) throttle else 0f
+        val manualPitch = (if (backInputDown) 1f else 0f) - (if (forwardInputDown) 1f else 0f)
+        val rudder = (if (rudderRightInputDown) 1f else 0f) - (if (rudderLeftInputDown) 1f else 0f)
+        val input = ExternalFlightModel.FixedWingInput(
+            aimX = if (pilot == null) 0f else Mth.clamp(mouseMoveSpeedX, -1f, 1f),
+            aimY = if (pilot == null) 0f else Mth.clamp(mouseMoveSpeedY, -1f, 1f),
+            manualPitch = manualPitch,
+            manualRoll = Mth.clamp(-deltaRot / 3f, -1f, 1f),
+            rudder = rudder,
+            throttle = Mth.clamp(effectiveThrottle, 0f, 1f),
+            wep = Mth.clamp((effectiveThrottle - 1f) / (VehicleAircraftFlightUtils.THROTTLE_WEP_CAP - 1f), 0f, 1f),
+            flaps = if (flapsDown) 1f else 0f,
+            gear = if (engineInfo.hasGear) 1f - synchedGearRot else 1f,
+            airbrake = airbrakeInputDown,
+            wheelBrake = airbrakeInputDown && onGround(),
+        )
+        external.tickFixedWing(this, input)
+        deltaMovement = deltaMovement.add(0.0, computed().gravity, 0.0)
+
+        // 发动机输出(音效/能量/螺旋桨转速用)跟随油门
+        power += (effectiveThrottle - power) * 0.05f
+        if (mainEngineDamaged) power *= 0.96f
+        if (subEngineDamaged) power *= 0.96f
+        propellerRot += 30 * power
+
+        // 舵面动画：与原逻辑相同的视觉表现
+        val flapX = (1 - (Mth.abs(roll)) / 90) * Mth.clamp(input.aimY * 3, -15f, 15f) -
+            calculateY(roll) * Mth.clamp(input.aimX * 3, -15f, 15f)
+        val addZ = deltaRot
+        flap1LRot = Mth.clamp(-flapX - 15 * addZ - planeBreak, -15f, 15f)
+        flap1RRot = Mth.clamp(-flapX + 15 * addZ - planeBreak, -15f, 15f)
+        flap1L2Rot = Mth.clamp(-flapX - 15 * addZ + planeBreak, -15f, 15f)
+        flap1R2Rot = Mth.clamp(-flapX + 15 * addZ + planeBreak, -15f, 15f)
+        val flapsDownOffset = if (flapsDown) 12f else 0f
+        flap2LRot = Mth.clamp(flapX - 15 * addZ + flapsDownOffset, -15f, 15f)
+        flap2RRot = Mth.clamp(flapX + 15 * addZ + flapsDownOffset, -15f, 15f)
+        val flapY = (1 - (Mth.abs(roll)) / 90) * Mth.clamp(input.aimX * 3, -15f, 15f) +
+            calculateY(roll) * Mth.clamp(input.aimY * 3, -15f, 15f)
+        flap3Rot = flapY * 5 + rudder * 15
+
+        deltaRot *= 0.9f
+        planeBreak *= 0.8f
+
+        if (power > 0.2f) {
+            engineStart = true
+            engineStartOver = true
+        }
         if (power < 0.0004f) {
             engineStart = false
             engineStartOver = false

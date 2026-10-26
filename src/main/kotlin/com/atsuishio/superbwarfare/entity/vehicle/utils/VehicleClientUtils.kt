@@ -3,12 +3,15 @@ package com.atsuishio.superbwarfare.entity.vehicle.utils
 import com.atsuishio.superbwarfare.data.gun.GunData
 import com.atsuishio.superbwarfare.data.gun.GunProp
 import com.atsuishio.superbwarfare.entity.vehicle.base.VehicleEntity
+import com.atsuishio.superbwarfare.data.vehicle.subdata.VehicleType
 import com.atsuishio.superbwarfare.entity.vehicle.utils.VehicleVecUtils.getXRotFromVector
 import com.atsuishio.superbwarfare.entity.vehicle.utils.VehicleVecUtils.getYRotFromVector
 import com.atsuishio.superbwarfare.entity.vehicle.utils.VehicleVecUtils.transformPosition
 import com.atsuishio.superbwarfare.event.ClientEventHandler
 import com.atsuishio.superbwarfare.event.ClientMouseHandler
 import com.atsuishio.superbwarfare.tools.maxZoom
+import com.mojang.math.Axis
+import net.minecraft.util.Mth
 import net.minecraft.network.chat.Component
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.player.Player
@@ -16,6 +19,7 @@ import net.minecraft.world.phys.Vec2
 import net.minecraft.world.phys.Vec3
 import net.neoforged.api.distmarker.Dist
 import net.neoforged.api.distmarker.OnlyIn
+import org.joml.Matrix4d
 
 /**
  * 处理载具客户端专用方法的工具类
@@ -65,9 +69,11 @@ object VehicleClientUtils {
                             (vehicle.getPitch(partialTicks) + ClientMouseHandler.nacelleCameraPitch).toFloat()
                         )
                     } else {
+                        // 驾驶员第三人称：镜头只跟随航向，不跟随机体俯仰
+                        val vehiclePitch = if (pitchFreeCamera(vehicle, player, isFirstPerson)) 0f else vehicle.getPitch(partialTicks)
                         Vec2(
                             (vehicle.getYaw(partialTicks) - ClientMouseHandler.freeCameraYaw).toFloat(),
-                            (vehicle.getPitch(partialTicks) + ClientMouseHandler.freeCameraPitch).toFloat()
+                            (vehiclePitch + ClientMouseHandler.freeCameraPitch).toFloat()
                         )
                     }
                 }
@@ -82,6 +88,31 @@ object VehicleClientUtils {
             }
         }
         return null
+    }
+
+    /**
+     * 固定翼/直升机驾驶员的第三人称视角不随机体俯仰转动(机头上下时镜头保持水平，只跟随航向)，
+     * 第一人称座舱视角和其他座位保持原样。
+     */
+    @OnlyIn(Dist.CLIENT)
+    @JvmStatic
+    fun pitchFreeCamera(vehicle: VehicleEntity, player: Player, isFirstPerson: Boolean): Boolean =
+        !isFirstPerson && vehicle.firstPassenger == player
+                && (vehicle.vehicleType == VehicleType.AIRPLANE || vehicle.vehicleType == VehicleType.HELICOPTER)
+
+    /** 与[VehicleVecUtils.getClientVehicleTransform]相同，但去掉机体俯仰，只保留航向和自由视角偏移 */
+    @OnlyIn(Dist.CLIENT)
+    @JvmStatic
+    fun pitchFreeCameraTransform(vehicle: VehicleEntity, partialTicks: Float): Matrix4d {
+        val transform = Matrix4d()
+        transform.translate(
+            Mth.lerp(partialTicks.toDouble(), vehicle.xo, vehicle.x),
+            Mth.lerp(partialTicks.toDouble(), vehicle.yo + vehicle.rotateOffsetHeight, vehicle.y + vehicle.rotateOffsetHeight),
+            Mth.lerp(partialTicks.toDouble(), vehicle.zo, vehicle.z)
+        )
+        transform.rotate(Axis.YP.rotationDegrees((-Mth.lerp(partialTicks, vehicle.yRotO, vehicle.yRot) + ClientMouseHandler.freeCameraYaw).toFloat()))
+        transform.rotate(Axis.XP.rotationDegrees(ClientMouseHandler.freeCameraPitch.toFloat()))
+        return transform
     }
 
     /**
@@ -120,7 +151,11 @@ object VehicleClientUtils {
                         vehicle.getCameraPos(player, partialTicks)
                     }
                 } else if (vehicle.useAircraftCamera(index)) {
-                    val transform = vehicle.getClientVehicleTransform(partialTicks)
+                    val transform = if (pitchFreeCamera(vehicle, player, isFirstPerson)) {
+                        pitchFreeCameraTransform(vehicle, partialTicks)
+                    } else {
+                        vehicle.getClientVehicleTransform(partialTicks)
+                    }
                     val maxCameraPosition = transformPosition(
                         transform,
                         data.aircraftCameraPos.x,

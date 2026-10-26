@@ -765,16 +765,18 @@ object ClientEventHandler {
             if (holdFireVehicle) {
                 keys = keys or 0b010000000
             }
-            if (ModKeyMappings.MOVE_CTRL.isDown) {
+            // 驾驶时Ctrl+交互键(E/Q/F/U/Y)是交互，不是油门减少/偏航/襟翼(见PilotKeyGate)
+            val interactionChord = PilotKeyGate.interactionChord()
+            if (ModKeyMappings.MOVE_CTRL.isDown && !interactionChord) {
                 keys = keys or 0b100000000
             }
-            if (ModKeyMappings.AIRCRAFT_RUDDER_LEFT.isDown) {
+            if (ModKeyMappings.AIRCRAFT_RUDDER_LEFT.isDown && !interactionChord) {
                 keys = keys or 0b1000000000
             }
-            if (ModKeyMappings.AIRCRAFT_RUDDER_RIGHT.isDown) {
+            if (ModKeyMappings.AIRCRAFT_RUDDER_RIGHT.isDown && !interactionChord) {
                 keys = keys or 0b10000000000
             }
-            if (ModKeyMappings.AIRCRAFT_TOGGLE_FLAPS.isDown) {
+            if (ModKeyMappings.AIRCRAFT_TOGGLE_FLAPS.isDown && !interactionChord) {
                 keys = keys or 0b100000000000
             }
             if (ModKeyMappings.AIRCRAFT_AIRBRAKE.isDown) {
@@ -826,7 +828,7 @@ object ClientEventHandler {
 
         // 卸载乘客：按住每隔1秒卸载最后一位，双击卸载全部
         if (vehicle is VehicleEntity && vehicle.firstPassenger == player && vehicle.passengers.size > 1) {
-            val unloadDown = ModKeyMappings.UNLOAD_PASSENGERS.isDown
+            val unloadDown = ModKeyMappings.UNLOAD_PASSENGERS.isDown && PilotKeyGate.interactionAllowed()
             val unloadJustPressed = unloadDown && !wasUnloadPassengersDown
             wasUnloadPassengersDown = unloadDown
 
@@ -868,7 +870,7 @@ object ClientEventHandler {
 
         // 检测双击断开牵引键在0.5s(10tick)内，断开载具的牵引关系
         if (vehicle is VehicleEntity && vehicle.firstPassenger == player) {
-            val towingDown = ModKeyMappings.DISCONNECT_TOWING.isDown
+            val towingDown = ModKeyMappings.DISCONNECT_TOWING.isDown && PilotKeyGate.interactionAllowed()
             val towingJustPressed = towingDown && !wasDisconnectTowingDown
             wasDisconnectTowingDown = towingDown
             if (towingJustPressed) {
